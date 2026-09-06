@@ -1,0 +1,190 @@
+{
+  "app_name": "Level Up Trading Hub",
+  "personality": "6 Glass / Luxe DARK (adapted for social/trading)",
+  "personality_one_liner": "A premium, energetic social network for financial traders that feels cinematic, exclusive, and precise.",
+  "color": {
+    "surface": "#0B0F19",
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#131926",
+    "onSurfaceSecondary": "#F1F5F9",
+    "surfaceTertiary": "#1C2436",
+    "onSurfaceTertiary": "#FFFFFF",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#0B0F19",
+    "brand": "#8A2BE2",
+    "brandPrimary": "#9D4EDD",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#00F0FF",
+    "onBrandSecondary": "#0B0F19",
+    "brandTertiary": "#2563EB",
+    "onBrandTertiary": "#FFFFFF",
+    "success": "#00E676",
+    "onSuccess": "#0B0F19",
+    "warning": "#FFC300",
+    "onWarning": "#0B0F19",
+    "error": "#FF2E63",
+    "onError": "#FFFFFF",
+    "info": "#00F0FF",
+    "onInfo": "#0B0F19",
+    "border": "#1E293B",
+    "borderStrong": "#334155",
+    "divider": "#1E293B",
+    "muted": "#94A3B8",
+    "onBrand": "#FFFFFF"
+  },
+  "typography": {
+    "displayFontFamily": "SpaceGrotesk",
+    "textFontFamily": "Manrope",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room for premium feel. Feed cards should have md margin to stand out from the canvas.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use glass on sticky headers over scrolling content",
+      "Use glass on bottom tab bar",
+      "Use glass for Premium feature teaser cards layered over background art"
+    ],
+    "dont's": [
+      "Never apply glass to text form fields",
+      "Don't stack more than 2 glass surfaces per screen"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Auth",
+      "purpose": "Sign up, login, and onboarding carousel.",
+      "states": {
+        "loading": "Spinner on surface background",
+        "empty": "N/A",
+        "error": "Toast with error colors"
+      },
+      "layout": "Full-bleed background image with a heavy gradient scrim (transparent to surface color at the bottom). Form fields inside surfaceSecondary containers with subtle border. Primary CTA spans full width at the bottom."
+    },
+    {
+      "name": "Home",
+      "purpose": "Main social feed featuring posts with media, likes, and a stories row.",
+      "states": {
+        "loading": "Skeleton feed cards",
+        "empty": "Abstract graphic + 'Follow traders to see their updates' + CTA",
+        "error": "Error text + Retry button"
+      },
+      "layout": "Glassmorphism sticky header. Top horizontal scroll for Stories (circular avatars with brandPrimary rings). Vertical feed of cards using surfaceSecondary, md border radius, containing header (avatar/name), content, optional media, and action row (Phosphor icons: heart, chat, share, bookmark)."
+    },
+    {
+      "name": "Profile",
+      "purpose": "Trader profile displaying metadata, stats, and a tabbed media feed.",
+      "states": {
+        "loading": "Skeleton profile layout",
+        "empty": "No posts yet message with empty state illustration",
+        "error": "Error fetching profile + Retry button"
+      },
+      "layout": "Cover image with vertical gradient scrim at bottom. Profile avatar overlapping cover. Stats row (Followers, Following). Chips for Markets and Trading Style. Sticky tab bar (Posts, Photos, Videos, Mentions, Saved) using glassmorphism. Content renders below based on active tab."
+    },
+    {
+      "name": "Chat",
+      "purpose": "List of direct messages and individual conversation screen.",
+      "states": {
+        "loading": "Skeleton list rows",
+        "empty": "'No messages yet' illustration + 'Start a conversation' CTA",
+        "error": "Error text + Retry button"
+      },
+      "layout": "List view for inbox (avatar, name, last message, time). Conversation view with surfaceTertiary bubbles for incoming, brandTertiary bubbles for outgoing. Sticky bottom input with keyboard-avoiding behavior."
+    },
+    {
+      "name": "Create Post",
+      "purpose": "Modal to compose text, upload media, or select a GIF.",
+      "states": {
+        "loading": "Uploading spinner overlay",
+        "empty": "N/A",
+        "error": "Toast on upload failure"
+      },
+      "layout": "Full screen modal with top actions (Cancel, Post). Large text area. Bottom toolbar for adding photos, videos, or GIFs."
+    },
+    {
+      "name": "Premium",
+      "purpose": "Teaser hub for upcoming premium sections.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Hero image using abstract neon grid background with gradient scrim. 3 large Glass cards (Single & Mingle, Accountability Partners, Trading Only) with lock icons and descriptive text."
+    }
+  ],
+  "images": {
+    "app_logo_or_splash": {
+      "url": "https://images.unsplash.com/photo-1688413708888-8368d1d99a15?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBuZW9uJTIwcHVycGxlJTIwZ3JpZCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg4NzA5MjQ0fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract neon purple lines background"
+    },
+    "trader_avatar_1": {
+      "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwxfHxtYW4lMjBoZWFkc2hvdCUyMHByb2ZpbGUlMjBwaWN0dXJlfGVufDB8fHx8MTc4ODcwOTI0OXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Professional male trader headshot"
+    },
+    "trader_avatar_2": {
+      "url": "https://images.unsplash.com/photo-1580489944761-15a19d654956?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGhlYWRzaG90JTIwcHJvZmlsZSUyMHBpY3R1cmV8ZW58MHx8fHwxNzg4NzA5MjQ5fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Professional female trader headshot"
+    },
+    "chart_screenshot": {
+      "url": "https://images.unsplash.com/photo-1607799632518-da91dd151b38?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwxfHxmaW5hbmNpYWwlMjB0cmFkaW5nJTIwY2hhcnQlMjBkYXJrJTIwbW9kZXxlbnwwfHx8fDE3ODg3MDkyNDl8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark mode financial trading chart screen"
+    },
+    "premium_teaser_bg": {
+      "url": "https://images.unsplash.com/photo-1689443111130-6e9c7dfd8f9e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRhcmslMjBuZW9uJTIwcHVycGxlJTIwZ3JpZCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg4NzA5MjQ0fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract purple geometric neon design"
+    }
+  },
+  "haptics": {
+    "events": {
+      "tab_press": "light",
+      "like_post": "medium",
+      "send_message": "success",
+      "pull_to_refresh": "light"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the 500 font-weight maximum rule. Use font size to establish hierarchy instead of bold weights. Ex: Heading at 24pt (500), Body at 14pt (400 or 500).",
+    "Implement the user-requested palette (near-black/navy backgrounds with electric purple, cyan, blue, silver accents) strictly. Do not use generic AI blue; use the specific hex codes provided in this JSON.",
+    "Use a gradient scrim (from transparent to at least 70% surface opacity) whenever text is placed on top of an image. Ensure the text uses onSurfaceInverse for maximum readability.",
+    "For the Profile screen, build a segmented control for the tabs (Posts, Photos, Videos, Mentions, Saved) that sticks below the profile header using a glassmorphism effect.",
+    "Implement the 'Stories' row on the Home feed as a horizontally scrolling list of circular avatars bordered with brandPrimary color.",
+    "Use Phosphor icons consistently across the app. Do not use emojis in the UI.",
+    "Wire up haptics per the haptics block (tab clicks, liking posts, sending messages)."
+  ]
+}

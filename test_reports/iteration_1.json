@@ -1,0 +1,36 @@
+{
+  "summary": "Comprehensive first-run test of Level Up Trading Hub. Backend: 21/21 pytest cases pass covering auth (signup/duplicate/login/wrong password/me/forgot+reset with fresh user), users (search, follow toggle, followers/following, stories, /me update + 409 username, tabbed user posts), posts (feed all/following, create with GIF media, like/bookmark/share/soft-delete, /me/saved), comments (text, GIF, reply, comment like toggle), chat (create conversation, list, text + GIF messages), GIFs (trending + search bull), and upload (small PNG via /api/upload then fetch via /api/files/*). Frontend (390x844 Expo web preview): full happy-path flows work — Welcome→Login demo→Home with stories row + feed, For you/Following toggle, like/bookmark, open post detail via comment button, post text + GIF comment via GIF picker (search 'bull'), reply-to-comment; Create tab writes text + adds GIF and post appears at top of Home; Premium tab shows 3 locked cards and Notify me shows success toast; Profile shows display name/@username/stats/chips/tabs, Edit profile bio save reflects on profile; Signup→Onboarding (chips selectable)→Enter the hub→Home; Story avatar (marcus_fx) opens post detail (per design allows post or profile); Forgot password with dev_code prefill on reset screen, new password login lands on Home; Logout from profile menu returns to Welcome. No deprecated Expo packages, no SafeAreaView usage from deprecated location, no red screen errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "search results row", "issue": "Search result cards on /search have no testID; individual text nodes (@username, name) reported as 'not visible' by Playwright due to ellipsis flex-shrink. Nested Pressable is tappable but hard to target reliably in tests.", "testID": "MISSING (suggest user-result-<user_id>)", "priority": "LOW"},
+      {"component": "post-card outer tap-to-detail", "issue": "The outer <Pressable onPress={openDetail}> in post-card.tsx has no testID; only inner post-like/comment/save have testIDs. Card body tap works via post-comment-* but a card-body testID would be nicer.", "testID": "MISSING (suggest post-body-<post_id>)", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "post-detail", "issues": ["When keyboard is focused the comment composer sits above tabs correctly; no overlap seen"]}
+    ],
+    "react_native_issues": [
+      {"component": "react-native-web internal", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents.' Source appears to be a third-party RN component (likely a Pressable/Toast library). Non-blocking but should be reviewed. Reference: not in app code (grep clean)."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional) Add testID to the search result <Pressable> row (e.g., user-result-<user_id>) to make the search→profile tap deterministic in tests.",
+    "(Optional) Add testID to the tap-to-open Pressable in post-card.tsx (e.g., post-body-<post_id>).",
+    "(Optional) Investigate origin of the react-native-web 'props.pointerEvents is deprecated' warning; likely from a third-party lib. Safe to defer."
+  ],
+  "critical_code_review_comments": [
+    "core.py MongoClient uses os.environ[...] directly — good, no defaults. Follows env-var rules.",
+    "post_id/like/bookmark/share endpoints all use max(0, count) which prevents negative counters after toggles — good.",
+    "routes_auth.py forgot_password returns dev_code in response by design for preview parity — clearly commented; consider gating behind APP_ENV=dev before prod.",
+    "routes_media.py returns URL relative to /api/files/... which is served via same host; frontend must resolve with EXPO_PUBLIC_BACKEND_URL when constructing full URL — confirm client handles relative /api/files/ paths (feed images loaded OK during test)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py", "/app/backend/tests/__init__.py"],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "~95% (all requested flows verified; two minor testID gaps for search result row and post-card tap zone)"},
+  "seed_data_creation": "Backend seed already provisions demo user + 4 seeded traders + posts. Tests also created a handful of TEST_-prefixed users, posts, comments and conversations via the API (soft-delete for posts). No manual DB writes.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "backend_test.py in /app/backend/tests covers all required endpoints and is idempotent (uses random suffixes and cleans up its own posts). Frontend Playwright flows all pass with mobile viewport 390x844. Two search-result-row testID gaps are the only friction; use text=@marcus_fx or the story-<username> shortcut on home to reach a user profile until testID is added.",
+  "rca_of_issue": "N/A — no bugs required RCA. Both minor UI-test frictions are missing testID annotations, not functional bugs."
+}
