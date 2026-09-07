@@ -46,6 +46,7 @@ export type Post = {
   media: MediaItem[];
   mentions: string[];
   mentioned_users?: AuthorSummary[];
+  edited_at?: string | null;
   likes_count: number;
   comments_count: number;
   shares_count: number;
@@ -63,6 +64,8 @@ export type Comment = {
   parent_id: string | null;
   text: string;
   gif_url: string | null;
+  mentions?: string[];
+  mentioned_users?: AuthorSummary[];
   likes_count: number;
   created_at: string;
   liked: boolean;

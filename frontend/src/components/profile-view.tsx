@@ -10,7 +10,7 @@ import { api, mediaUrl } from "@/src/api";
 import { PostCard } from "@/src/components/post-card";
 import { Avatar, Button, Chip, EmptyState, Loader } from "@/src/components/ui";
 import { postKeys } from "@/src/hooks/use-post-actions";
-import { useVisiblePostsTracker } from "@/src/hooks/use-visible-posts";
+import { useVisiblePostsTracker, VisiblePostsProvider } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
 import type { Post, User } from "@/src/types";
@@ -31,7 +31,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
   const qc = useQueryClient();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("posts");
-  const { onViewableItemsChanged, viewabilityConfig, Provider: VisiblePosts } = useVisiblePostsTracker();
+  const { onViewableItemsChanged, viewabilityConfig, visible } = useVisiblePostsTracker();
 
   const tabs: Tab[] = isMe ? ["posts", "photos", "videos", "mentions", "saved"] : ["posts", "photos", "videos", "mentions"];
 
@@ -168,7 +168,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
   const data: any[] = isGrid ? gridRows : (postsQuery.data ?? []);
 
   return (
-    <VisiblePosts>
+    <VisiblePostsProvider value={visible}>
     <SectionList
       sections={[{ key: tab, data }]}
       keyExtractor={(item, index) => (isGrid ? `row-${index}` : item.post_id)}
@@ -201,7 +201,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
       refreshControl={<RefreshControl refreshing={postsQuery.isRefetching} onRefresh={() => Promise.all([postsQuery.refetch(), onRefreshUser()])} tintColor={colors.brandSecondary} />}
       testID="profile-list"
     />
-    </VisiblePosts>
+    </VisiblePostsProvider>
   );
 }
 

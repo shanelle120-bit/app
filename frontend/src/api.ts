@@ -111,28 +111,56 @@ export async function uploadFile(uri: string, name: string, type: string): Promi
     return api<UploadResult>("/upload", { method: "POST", formData: form });
   }
   // Native: Expo's fetch polyfill rejects `{ uri, name, type }` form parts
-  // ("Unsupported FormDataPart implementation"), so stream the file with the
-  // native multipart uploader instead.
+  // ("Unsupported FormDataPart implementation"). Stream the file with the
+  // native multipart uploader; if that module is unavailable or fails, fall back
+  // to XMLHttpRequest, which is handled by React Native's own networking layer
+  // (not the fetch polyfill) and supports file-uri form parts natively.
   const headers: Record<string, string> = {};
   if (memoryToken) headers.Authorization = `Bearer ${memoryToken}`;
-  const res = await FileSystem.uploadAsync(`${API_URL}/upload`, uri, {
-    httpMethod: "POST",
-    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-    fieldName: "file",
-    mimeType: type,
-    parameters: { filename: name },
-    headers,
-  });
+  let status = 0;
+  let body = "";
+  try {
+    const res = await FileSystem.uploadAsync(`${API_URL}/upload`, uri, {
+      httpMethod: "POST",
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      fieldName: "file",
+      mimeType: type,
+      parameters: { filename: name },
+      headers,
+    });
+    status = res.status;
+    body = res.body;
+  } catch (e) {
+    console.warn("uploadAsync failed, falling back to XHR", e);
+    const xhrRes = await xhrUpload(`${API_URL}/upload`, uri, name, type, headers);
+    status = xhrRes.status;
+    body = xhrRes.body;
+  }
   let data: any = null;
   try {
-    data = res.body ? JSON.parse(res.body) : null;
+    data = body ? JSON.parse(body) : null;
   } catch {
-    data = { detail: res.body };
+    data = { detail: body };
   }
-  if (res.status < 200 || res.status >= 300) {
-    if (res.status === 401 && onUnauthorized) onUnauthorized();
+  if (status < 200 || status >= 300) {
+    if (status === 401 && onUnauthorized) onUnauthorized();
     const detail = data?.detail;
-    throw new ApiError(res.status, typeof detail === "string" ? detail : `Upload failed (${res.status})`);
+    throw new ApiError(status, typeof detail === "string" ? detail : `Upload failed (${status || "network error"})`);
   }
   return data as UploadResult;
+}
+
+function xhrUpload(url: string, uri: string, name: string, type: string, headers: Record<string, string>) {
+  return new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", { uri, name, type } as any);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.ontimeout = () => reject(new Error("Upload timed out"));
+    xhr.timeout = 5 * 60 * 1000;
+    xhr.send(form);
+  });
 }

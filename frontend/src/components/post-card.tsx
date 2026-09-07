@@ -8,16 +8,19 @@ import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { mediaUrl, timeAgo } from "@/src/api";
+import { EditPostSheet } from "@/src/components/edit-post-sheet";
 import { Avatar } from "@/src/components/ui";
 import { usePostActions } from "@/src/hooks/use-post-actions";
 import { usePostVisible } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
 import type { MediaItem, Post } from "@/src/types";
 
-function VideoBlock({ uri, active }: { uri: string; active: boolean }) {
+function VideoBlock({ uri, postId }: { uri: string; postId?: string }) {
   const styles = useStyles();
   const { colors } = useTheme();
   const [engaged, setEngaged] = useState(false);
+  // Only the video block subscribes to visibility, so scroll updates never re-render the card/list.
+  const active = usePostVisible(postId ?? "");
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
@@ -99,7 +102,7 @@ export function RichText({ text, style, mentions }: { text: string; style: any; 
   );
 }
 
-export function PostMedia({ media, compact, active = true }: { media: MediaItem[]; compact?: boolean; active?: boolean }) {
+export function PostMedia({ media, compact, postId }: { media: MediaItem[]; compact?: boolean; postId?: string }) {
   const styles = useStyles();
   const [preview, setPreview] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
@@ -109,7 +112,7 @@ export function PostMedia({ media, compact, active = true }: { media: MediaItem[
     <View style={[styles.mediaWrap, compact && { marginTop: 8 }]}>
       {media.map((m, i) => {
         const uri = mediaUrl(m.url)!;
-        if (m.type === "video") return <VideoBlock key={i} uri={uri} active={active} />;
+        if (m.type === "video") return <VideoBlock key={i} uri={uri} postId={postId} />;
         const ratio = m.width && m.height ? m.width / m.height : m.type === "gif" ? 1.3 : 1.5;
         return (
           <Pressable key={i} onPress={() => setPreview(uri)} testID={`post-media-${i}`}>
@@ -142,7 +145,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
   const router = useRouter();
   const { like, bookmark, share, remove } = usePostActions();
   const [menu, setMenu] = useState(false);
-  const visible = usePostVisible(post.post_id);
+  const [editing, setEditing] = useState(false);
 
   const openDetail = () => {
     if (!detail) router.push(`/post/${post.post_id}`);
@@ -167,6 +170,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
             </View>
             <Text style={styles.meta} numberOfLines={1}>
               @{post.author.username} · {timeAgo(post.created_at)}
+              {post.edited_at ? " · edited" : ""}
             </Text>
           </View>
         </Pressable>
@@ -180,7 +184,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
       <Pressable onPress={openDetail} disabled={detail} testID={`post-body-${post.post_id}`}>
         {post.text ? <RichText text={post.text} style={[styles.text, detail && styles.textLarge]} mentions={post.mentioned_users} /> : null}
       </Pressable>
-      <PostMedia media={post.media} active={visible} />
+      <PostMedia media={post.media} postId={post.post_id} />
 
       <View style={styles.actions}>
         <Pressable onPress={() => like.mutate(post)} style={styles.action} hitSlop={6} testID={`post-like-${post.post_id}`}>
@@ -208,6 +212,17 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
               style={styles.sheetItem}
               onPress={() => {
                 setMenu(false);
+                setEditing(true);
+              }}
+              testID="post-edit-button"
+            >
+              <Ionicons name="create-outline" size={20} color={colors.onSurface} />
+              <Text style={styles.sheetText}>Edit post</Text>
+            </Pressable>
+            <Pressable
+              style={styles.sheetItem}
+              onPress={() => {
+                setMenu(false);
                 remove.mutate(post);
                 if (detail) router.back();
               }}
@@ -223,6 +238,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
           </View>
         </Pressable>
       </Modal>
+      {editing ? <EditPostSheet post={post} visible onClose={() => setEditing(false)} /> : null}
     </View>
   );
 });

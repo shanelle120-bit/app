@@ -1,13 +1,20 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useRef, useState } from "react";
 import type { ViewToken } from "react-native";
 
 /**
  * Tracks which posts are currently visible in a list so feed videos can
  * autoplay (muted) while on screen and pause when scrolled away.
+ *
+ * The provider component is a stable module-level component (never recreated),
+ * so visibility updates re-render only the consumers, not the list itself.
  */
 const VisiblePostsContext = createContext<Set<string> | null>(null);
 
 export const viewabilityConfig = { itemVisiblePercentThreshold: 55, minimumViewTime: 150 };
+
+export function VisiblePostsProvider({ value, children }: { value: Set<string>; children: React.ReactNode }) {
+  return <VisiblePostsContext.Provider value={value}>{children}</VisiblePostsContext.Provider>;
+}
 
 export function useVisiblePostsTracker() {
   const [visible, setVisible] = useState<Set<string>>(() => new Set());
@@ -19,14 +26,7 @@ export function useVisiblePostsTracker() {
     last.current = key;
     setVisible(new Set(ids));
   }, []);
-  const Provider = useMemo(
-    () =>
-      function VisiblePostsProvider({ children }: { children: React.ReactNode }) {
-        return <VisiblePostsContext.Provider value={visible}>{children}</VisiblePostsContext.Provider>;
-      },
-    [visible],
-  );
-  return { onViewableItemsChanged, viewabilityConfig, Provider };
+  return { onViewableItemsChanged, viewabilityConfig, visible };
 }
 
 /** True when the post is on screen. Outside a tracked list (e.g. post detail) it is always true. */

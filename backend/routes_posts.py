@@ -31,6 +31,12 @@ class CommentCreate(BaseModel):
     text: str = Field(default="", max_length=1000)
     gif_url: Optional[str] = None
     parent_id: Optional[str] = None
+    mentions: Optional[List[str]] = None
+
+
+class PostUpdate(BaseModel):
+    text: str = Field(default="", max_length=2000)
+    mentions: Optional[List[str]] = None
 
 
 async def resolve_mentions(text: str) -> List[str]:
@@ -129,6 +135,23 @@ async def get_post(post_id: str, user=Depends(get_current_user)):
     return (await enrich_posts([post], user["user_id"]))[0]
 
 
+@router.put("/posts/{post_id}")
+async def update_post(post_id: str, body: PostUpdate, user=Depends(get_current_user)):
+    post = await get_post_or_404(post_id)
+    if post["author_id"] != user["user_id"]:
+        raise HTTPException(status_code=403, detail="You can only edit your own posts")
+    text = body.text.strip()
+    if not text and not post.get("media"):
+        raise HTTPException(status_code=400, detail="A post needs some text or media")
+    mentions = await resolve_selected_mentions(body.mentions, text) if body.mentions is not None else await resolve_mentions(text)
+    await db.posts.update_one(
+        {"post_id": post_id},
+        {"$set": {"text": text, "mentions": mentions, "edited_at": now_utc()}},
+    )
+    fresh = await db.posts.find_one({"post_id": post_id}, NO_ID)
+    return (await enrich_posts([fresh], user["user_id"]))[0]
+
+
 @router.delete("/posts/{post_id}")
 async def delete_post(post_id: str, user=Depends(get_current_user)):
     post = await get_post_or_404(post_id)
@@ -178,12 +201,14 @@ async def list_comments(post_id: str, user=Depends(get_current_user)):
     await get_post_or_404(post_id)
     cursor = db.comments.find({"post_id": post_id, "deleted_at": None}, NO_ID).sort("created_at", 1).limit(300)
     comments = [c async for c in cursor]
-    umap = await users_map([c["author_id"] for c in comments])
+    mention_ids = [m for c in comments for m in (c.get("mentions") or [])]
+    umap = await users_map([c["author_id"] for c in comments] + mention_ids)
     ids = [c["comment_id"] for c in comments]
     liked = {d["comment_id"] async for d in db.comment_likes.find(
         {"user_id": user["user_id"], "comment_id": {"$in": ids}}, NO_ID)}
     for c in comments:
         c["author"] = author_summary(umap.get(c["author_id"]))
+        c["mentioned_users"] = [author_summary(umap[m]) for m in (c.get("mentions") or []) if m in umap]
         c["liked"] = c["comment_id"] in liked
         c["is_mine"] = c["author_id"] == user["user_id"]
         c.pop("deleted_at", None)
@@ -200,6 +225,7 @@ async def create_comment(post_id: str, body: CommentCreate, user=Depends(get_cur
         parent = await db.comments.find_one({"comment_id": body.parent_id, "post_id": post_id}, NO_ID)
         if not parent:
             raise HTTPException(status_code=404, detail="Parent comment not found")
+    mentions = await resolve_selected_mentions(body.mentions, text) if body.mentions is not None else []
     doc = {
         "comment_id": new_id("cmt"),
         "post_id": post_id,
@@ -207,6 +233,7 @@ async def create_comment(post_id: str, body: CommentCreate, user=Depends(get_cur
         "parent_id": body.parent_id,
         "text": text,
         "gif_url": body.gif_url,
+        "mentions": mentions,
         "likes_count": 0,
         "created_at": now_utc(),
         "deleted_at": None,
@@ -214,7 +241,9 @@ async def create_comment(post_id: str, body: CommentCreate, user=Depends(get_cur
     await db.comments.insert_one(doc)
     doc.pop("_id", None)
     await db.posts.update_one({"post_id": post_id}, {"$inc": {"comments_count": 1}})
+    mention_map = await users_map(mentions)
     doc["author"] = author_summary(user)
+    doc["mentioned_users"] = [author_summary(mention_map[m]) for m in mentions if m in mention_map]
     doc["liked"] = False
     doc["is_mine"] = True
     doc.pop("deleted_at", None)

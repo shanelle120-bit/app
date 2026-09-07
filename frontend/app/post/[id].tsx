@@ -9,12 +9,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, timeAgo } from "@/src/api";
 import { GifPicker } from "@/src/components/gif-picker";
+import { MentionSuggestions, useMentions } from "@/src/components/mention-suggestions";
 import { PostCard, RichText } from "@/src/components/post-card";
 import { Avatar, Button, EmptyState, Loader, ScreenHeader } from "@/src/components/ui";
 import { patchPostEverywhere, postKeys } from "@/src/hooks/use-post-actions";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
-import type { Comment, Gif, Post } from "@/src/types";
+import type { Comment, Gif, Post, User } from "@/src/types";
 
 type Row = Comment & { depth: number };
 
@@ -30,7 +31,16 @@ export default function PostDetail() {
   const [gif, setGif] = useState<Gif | null>(null);
   const [gifOpen, setGifOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
+  const [cursor, setCursor] = useState(0);
+  const mentions = useMentions(text, cursor);
   const inputRef = useRef<TextInput>(null);
+
+  const insertMention = (u: User) => {
+    const res = mentions.insert(u);
+    if (!res) return;
+    setText(res.text);
+    setCursor(res.cursor);
+  };
 
   const postQuery = useQuery({ queryKey: postKeys.detail(id), queryFn: () => api<Post>(`/posts/${id}`), enabled: !!id });
   const commentsQuery = useQuery({ queryKey: ["comments", id], queryFn: () => api<Comment[]>(`/posts/${id}/comments`), enabled: !!id });
@@ -54,11 +64,16 @@ export default function PostDetail() {
   }, [commentsQuery.data]);
 
   const send = useMutation({
-    mutationFn: () => api<Comment>(`/posts/${id}/comments`, { method: "POST", body: { text: text.trim(), gif_url: gif?.url ?? null, parent_id: replyTo?.comment_id ?? null } }),
+    mutationFn: () =>
+      api<Comment>(`/posts/${id}/comments`, {
+        method: "POST",
+        body: { text: text.trim(), gif_url: gif?.url ?? null, parent_id: replyTo?.comment_id ?? null, mentions: mentions.selectedIds(text) },
+      }),
     onSuccess: () => {
       setText("");
       setGif(null);
       setReplyTo(null);
+      mentions.reset();
       qc.invalidateQueries({ queryKey: ["comments", id] });
       if (postQuery.data) patchPostEverywhere(qc, id, { comments_count: postQuery.data.comments_count + 1 });
     },
@@ -110,7 +125,7 @@ export default function PostDetail() {
                       <Text style={styles.commentName}>{item.author.display_name}</Text>
                       <Text style={styles.commentMeta}>@{item.author.username} · {timeAgo(item.created_at)}</Text>
                     </View>
-                    {item.text ? <RichText text={item.text} style={styles.commentText} /> : null}
+                    {item.text ? <RichText text={item.text} style={styles.commentText} mentions={item.mentioned_users} /> : null}
                     {item.gif_url ? <Image source={{ uri: item.gif_url }} style={styles.commentGif} contentFit="cover" /> : null}
                   </View>
                   <View style={styles.commentActions}>
@@ -140,6 +155,7 @@ export default function PostDetail() {
         )}
 
         <View style={[styles.composer, { paddingBottom: insets.bottom + 8 }]}>
+          <MentionSuggestions query={mentions.query} suggestions={mentions.suggestions} onSelect={insertMention} testID="comment-mention-suggestions" />
           {replyTo ? (
             <View style={styles.replyBar}>
               <Text style={styles.replyText} numberOfLines={1}>
@@ -165,8 +181,12 @@ export default function PostDetail() {
             <TextInput
               ref={inputRef}
               value={text}
-              onChangeText={setText}
-              placeholder={replyTo ? "Write a reply…" : "Add a comment…"}
+              onChangeText={(t) => {
+                setCursor((c) => (c >= text.length ? t.length : c));
+                setText(t);
+              }}
+              onSelectionChange={(e) => setCursor(e.nativeEvent.selection.end)}
+              placeholder={replyTo ? "Write a reply… @ to mention" : "Add a comment… @ to mention"}
               placeholderTextColor={colors.muted}
               style={styles.input}
               multiline

@@ -10,7 +10,7 @@ import { PostCard } from "@/src/components/post-card";
 import { StoriesRow } from "@/src/components/stories-row";
 import { Button, EmptyState, Loader } from "@/src/components/ui";
 import { postKeys } from "@/src/hooks/use-post-actions";
-import { useVisiblePostsTracker } from "@/src/hooks/use-visible-posts";
+import { useVisiblePostsTracker, VisiblePostsProvider } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
 import type { Post } from "@/src/types";
 
@@ -32,7 +32,7 @@ export default function Home() {
   });
 
   const posts = query.data?.pages.flatMap((p) => p.items) ?? [];
-  const { onViewableItemsChanged, viewabilityConfig, Provider: VisiblePosts } = useVisiblePostsTracker();
+  const { onViewableItemsChanged, viewabilityConfig, visible } = useVisiblePostsTracker();
 
   const refresh = async () => {
     await Promise.all([query.refetch(), qc.invalidateQueries({ queryKey: ["stories"] })]);
@@ -64,7 +64,7 @@ export default function Home() {
         </View>
       </View>
 
-      <VisiblePosts>
+      <VisiblePostsProvider value={visible}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.post_id}
@@ -93,7 +93,7 @@ export default function Home() {
         }
         testID="feed-list"
       />
-      </VisiblePosts>
+      </VisiblePostsProvider>
     </View>
   );
 }
