@@ -64,7 +64,8 @@ export default function Notifications() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => list.refetch()} tintColor={colors.brandSecondary} />}
         renderItem={({ item }) => {
-          const c = COPY[item.type] ?? { verb: "interacted with you", icon: "notifications", tone: "cyan" as const };
+          const base = COPY[item.type] ?? { verb: "interacted with you", icon: "notifications", tone: "cyan" as const };
+          const c = item.type === "like" && item.reaction ? { ...base, verb: `reacted ${item.reaction} to your post` } : base;
           return (
             <Pressable onPress={() => open(item)} style={[styles.row, !item.read && styles.rowUnread]} testID={`notification-${item.notification_id}`}>
               <View>

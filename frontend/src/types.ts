@@ -48,6 +48,7 @@ export type Notification = {
   post_id: string | null;
   comment_id: string | null;
   text: string;
+  reaction?: string | null;
   read: boolean;
   mingle?: boolean;
   created_at: string;
@@ -101,6 +102,8 @@ export type Post = {
   shares_count: number;
   created_at: string;
   liked: boolean;
+  my_reaction?: string | null;
+  reactions?: Record<string, number>;
   saved: boolean;
   is_mine: boolean;
 };
@@ -141,6 +144,8 @@ export type Message = {
   text: string;
   gif_url: string | null;
   image_url: string | null;
+  audio_url?: string | null;
+  audio_duration?: number | null;
   created_at: string;
   is_mine: boolean;
 };

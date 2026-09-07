@@ -52,7 +52,7 @@ export default function CreatePost() {
     setAttachments((a) => [...a, temp]);
     try {
       const res = await uploadFile(picked.uri, picked.name, picked.mimeType);
-      setAttachments((a) => a.map((x) => (x.local === picked.uri ? { ...x, url: res.url, type: res.type, uploading: false } : x)));
+      setAttachments((a) => a.map((x) => (x.local === picked.uri ? { ...x, url: res.url, type: res.type === "audio" ? x.type : res.type, uploading: false } : x)));
     } catch (e: any) {
       setAttachments((a) => a.filter((x) => x.local !== picked.uri));
       toast.show(e.message ?? "Upload failed", "error");

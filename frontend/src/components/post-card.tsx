@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { mediaUrl, timeAgo } from "@/src/api";
 import { EditPostSheet } from "@/src/components/edit-post-sheet";
+import { ReactionControl } from "@/src/components/reaction-control";
 import { Avatar } from "@/src/components/ui";
 import { usePostActions } from "@/src/hooks/use-post-actions";
 import { usePostVisible } from "@/src/hooks/use-visible-posts";
@@ -143,7 +144,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
-  const { like, bookmark, share, remove } = usePostActions();
+  const { react, bookmark, share, remove } = usePostActions();
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -197,10 +198,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
       <PostMedia media={post.media} postId={post.post_id} />
 
       <View style={styles.actions}>
-        <Pressable onPress={() => like.mutate(post)} style={styles.action} hitSlop={6} testID={`post-like-${post.post_id}`}>
-          <Ionicons name={post.liked ? "heart" : "heart-outline"} size={22} color={post.liked ? colors.error : colors.silver} />
-          <Text style={[styles.actionText, post.liked && { color: colors.error }]}>{post.likes_count}</Text>
-        </Pressable>
+        <ReactionControl post={post} onReact={(reaction) => react.mutate({ post, reaction })} />
         <Pressable onPress={openDetail} style={styles.action} hitSlop={6} testID={`post-comment-${post.post_id}`}>
           <Ionicons name="chatbubble-outline" size={21} color={colors.silver} />
           <Text style={styles.actionText}>{post.comments_count}</Text>

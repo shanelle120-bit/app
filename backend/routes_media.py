@@ -13,10 +13,12 @@ from core import db, NO_ID, now_utc, get_current_user, put_object, get_object, A
 router = APIRouter(tags=["media"])
 
 MAX_UPLOAD_BYTES = 150 * 1024 * 1024
-ALLOWED_PREFIXES = ("image/", "video/")
+ALLOWED_PREFIXES = ("image/", "video/", "audio/")
 EXT_BY_TYPE = {
     "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
     "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm",
+    "audio/m4a": "m4a", "audio/x-m4a": "m4a", "audio/mp4": "m4a", "audio/aac": "aac", "audio/mpeg": "mp3",
+    "audio/webm": "webm", "audio/ogg": "ogg", "audio/wav": "wav",
 }
 
 
@@ -24,7 +26,7 @@ EXT_BY_TYPE = {
 async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
     content_type = (file.content_type or "application/octet-stream").lower()
     if not content_type.startswith(ALLOWED_PREFIXES):
-        raise HTTPException(status_code=400, detail="Only images and videos are allowed")
+        raise HTTPException(status_code=400, detail="Only images, videos and voice recordings are allowed")
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 150MB)")
@@ -47,7 +49,7 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
         "deleted_at": None,
     }
     await db.media_files.insert_one(doc)
-    kind = "video" if content_type.startswith("video/") else "image"
+    kind = "video" if content_type.startswith("video/") else "audio" if content_type.startswith("audio/") else "image"
     return {"url": f"/api/files/{doc['path']}", "type": kind, "path": doc["path"], "content_type": content_type}
 
 

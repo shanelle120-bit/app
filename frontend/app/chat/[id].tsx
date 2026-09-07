@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, mediaUrl, parseDate, uploadFile } from "@/src/api";
 import { GifPicker } from "@/src/components/gif-picker";
 import { Avatar, Loader } from "@/src/components/ui";
+import { VoiceBubble, VoiceRecorder } from "@/src/components/voice-message";
 import { useMediaPicker } from "@/src/hooks/use-media-picker";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
@@ -28,6 +29,7 @@ export default function Conversation() {
   const [text, setText] = useState("");
   const [gifOpen, setGifOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const convQuery = useQuery({ queryKey: ["conversation", id], queryFn: () => api<{ other_user: AuthorSummary }>(`/conversations/${id}`), enabled: !!id });
@@ -39,7 +41,7 @@ export default function Conversation() {
   });
 
   const send = useMutation({
-    mutationFn: (body: { text?: string; gif_url?: string; image_url?: string }) => api<Message>(`/conversations/${id}/messages`, { method: "POST", body }),
+    mutationFn: (body: { text?: string; gif_url?: string; image_url?: string; audio_url?: string; audio_duration?: number }) => api<Message>(`/conversations/${id}/messages`, { method: "POST", body }),
     onSuccess: (msg) => {
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.setQueryData(["messages", id], (old: Message[] | undefined) => [...(old ?? []), msg]);
@@ -104,6 +106,7 @@ export default function Conversation() {
           renderItem={({ item }) => (
             <View style={[styles.msgRow, item.is_mine && styles.msgRowMine]} testID={`message-${item.message_id}`}>
               <View style={[styles.bubble, item.is_mine ? styles.bubbleMine : styles.bubbleTheirs, (item.gif_url || item.image_url) && styles.bubbleMedia]}>
+                {item.audio_url ? <VoiceBubble url={item.audio_url} duration={item.audio_duration ?? 0} mine={item.is_mine} /> : null}
                 {item.gif_url ? <Image source={{ uri: item.gif_url }} style={styles.media} contentFit="cover" /> : null}
                 {item.image_url ? <Image source={{ uri: mediaUrl(item.image_url) }} style={styles.media} contentFit="cover" /> : null}
                 {item.text ? <Text style={[styles.msgText, item.is_mine && { color: colors.onBrandTertiary }]}>{item.text}</Text> : null}
@@ -115,30 +118,42 @@ export default function Conversation() {
           )}
         />
         <View style={[styles.composer, { paddingBottom: insets.bottom + 8 }]}>
-          <Pressable onPress={sendImage} style={styles.iconBtn} disabled={uploading} testID="message-add-image">
-            <Ionicons name="image-outline" size={22} color={uploading ? colors.muted : colors.brandSecondary} />
-          </Pressable>
-          <Pressable onPress={() => setGifOpen(true)} style={styles.iconBtn} testID="message-gif-button">
-            <Text style={styles.gifText}>GIF</Text>
-          </Pressable>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Message…"
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            multiline
-            maxLength={2000}
-            testID="message-input"
-          />
-          <Pressable
-            onPress={() => text.trim() && send.mutate({ text: text.trim() })}
-            disabled={!text.trim() || send.isPending}
-            style={[styles.sendBtn, (!text.trim() || send.isPending) && { opacity: 0.4 }]}
-            testID="message-send-button"
-          >
-            <Ionicons name="arrow-up" size={20} color={colors.onBrandPrimary} />
-          </Pressable>
+          {recording ? (
+            <VoiceRecorder
+              onClose={() => setRecording(false)}
+              onSend={async (audio) => {
+                await send.mutateAsync({ audio_url: audio.url, audio_duration: audio.duration });
+              }}
+            />
+          ) : (
+            <>
+              <Pressable onPress={sendImage} style={styles.iconBtn} disabled={uploading} testID="message-add-image">
+                <Ionicons name="image-outline" size={22} color={uploading ? colors.muted : colors.brandSecondary} />
+              </Pressable>
+              <Pressable onPress={() => setGifOpen(true)} style={styles.iconBtn} testID="message-gif-button">
+                <Text style={styles.gifText}>GIF</Text>
+              </Pressable>
+              <TextInput
+                value={text}
+                onChangeText={setText}
+                placeholder="Message…"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+                multiline
+                maxLength={2000}
+                testID="message-input"
+              />
+              {text.trim() ? (
+                <Pressable onPress={() => send.mutate({ text: text.trim() })} disabled={send.isPending} style={[styles.sendBtn, send.isPending && { opacity: 0.4 }]} testID="message-send-button">
+                  <Ionicons name="arrow-up" size={20} color={colors.onBrandPrimary} />
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => setRecording(true)} style={styles.sendBtn} testID="message-voice-button">
+                  <Ionicons name="mic" size={20} color={colors.onBrandPrimary} />
+                </Pressable>
+              )}
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
 

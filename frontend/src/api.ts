@@ -101,7 +101,7 @@ export function timeAgo(value: string | null | undefined): string {
   return parseDate(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export type UploadResult = { url: string; type: "image" | "video"; path: string; content_type: string };
+export type UploadResult = { url: string; type: "image" | "video" | "audio"; path: string; content_type: string };
 
 export async function uploadFile(uri: string, name: string, type: string): Promise<UploadResult> {
   if (Platform.OS === "web") {

@@ -13,10 +13,15 @@ class ConversationCreate(BaseModel):
     user_id: str
 
 
+MAX_VOICE_SECONDS = 60
+
+
 class MessageCreate(BaseModel):
     text: str = Field(default="", max_length=2000)
     gif_url: Optional[str] = None
     image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    audio_duration: Optional[float] = Field(default=None, ge=0, le=MAX_VOICE_SECONDS)
 
 
 def other_participant(conv: dict, me: str) -> str:
@@ -115,8 +120,10 @@ async def send_message(conversation_id: str, body: MessageCreate, user=Depends(g
     if other_participant(conv, me) in await mingle_blocked_ids(me):
         raise HTTPException(status_code=403, detail="You can't message this member")
     text = body.text.strip()
-    if not text and not body.gif_url and not body.image_url:
+    if not text and not body.gif_url and not body.image_url and not body.audio_url:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if body.audio_url and not body.audio_url.startswith("/api/files/"):
+        raise HTTPException(status_code=400, detail="Invalid voice message")
     msg = {
         "message_id": new_id("msg"),
         "conversation_id": conversation_id,
@@ -124,11 +131,13 @@ async def send_message(conversation_id: str, body: MessageCreate, user=Depends(g
         "text": text,
         "gif_url": body.gif_url,
         "image_url": body.image_url,
+        "audio_url": body.audio_url,
+        "audio_duration": round(body.audio_duration or 0, 1) if body.audio_url else None,
         "created_at": now_utc(),
     }
     await db.messages.insert_one(msg)
     msg.pop("_id", None)
-    preview = text or ("GIF" if body.gif_url else "Photo")
+    preview = text or ("GIF" if body.gif_url else "🎤 Voice message" if body.audio_url else "Photo")
     await db.conversations.update_one(
         {"conversation_id": conversation_id},
         {"$set": {"last_message": preview, "last_message_at": msg["created_at"], f"last_read.{me}": msg["created_at"]}},

@@ -34,9 +34,35 @@ function haptic(kind: "light" | "medium" | "success") {
   else Haptics.impactAsync(kind === "light" ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium);
 }
 
+export const REACTIONS = ["😂", "🩷", "🤑", "🥳", "🔥", "🗣️", "🤗", "🤬"] as const;
+
+/** Local recompute of the reaction summary when a member picks/changes/removes their reaction. */
+export function applyReaction(post: Post, reaction: string | null): Partial<Post> {
+  const reactions = { ...(post.reactions ?? {}) };
+  const prev = post.my_reaction ?? (post.liked ? "🩷" : null);
+  if (prev) {
+    reactions[prev] = Math.max(0, (reactions[prev] ?? 1) - 1);
+    if (!reactions[prev]) delete reactions[prev];
+  }
+  if (reaction) reactions[reaction] = (reactions[reaction] ?? 0) + 1;
+  const likes_count = Math.max(0, post.likes_count + (reaction ? 1 : 0) - (prev ? 1 : 0));
+  return { my_reaction: reaction, liked: !!reaction, reactions, likes_count };
+}
+
 export function usePostActions() {
   const qc = useQueryClient();
   const toast = useToast();
+
+  const react = useMutation({
+    mutationFn: ({ post, reaction }: { post: Post; reaction: string | null }) =>
+      api<{ liked: boolean; my_reaction: string | null; likes_count: number; reactions: Record<string, number> }>(`/posts/${post.post_id}/react`, { method: "POST", body: { reaction } }),
+    onMutate: ({ post, reaction }) => {
+      haptic("medium");
+      patchPostEverywhere(qc, post.post_id, applyReaction(post, reaction));
+    },
+    onSuccess: (res, { post }) => patchPostEverywhere(qc, post.post_id, res),
+    onError: (_e, { post }) => patchPostEverywhere(qc, post.post_id, { liked: post.liked, my_reaction: post.my_reaction, likes_count: post.likes_count, reactions: post.reactions }),
+  });
 
   const like = useMutation({
     mutationFn: (post: Post) => api<{ liked: boolean; likes_count: number }>(`/posts/${post.post_id}/like`, { method: "POST" }),
@@ -95,5 +121,5 @@ export function usePostActions() {
     onError: (e: Error) => toast.show(e.message, "error"),
   });
 
-  return { like, bookmark, share, remove };
+  return { like, react, bookmark, share, remove };
 }

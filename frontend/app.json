@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.leveluphub.m1d5id",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Share chart screenshots and photos in posts"
+        "NSPhotoLibraryUsageDescription": "Share chart screenshots and photos in posts",
+        "NSMicrophoneUsageDescription": "Record voice messages in private chats"
       }
     },
     "android": {
@@ -20,7 +21,11 @@
         "backgroundColor": "#000000"
       },
       "package": "com.emergent.leveluphub.m1d5id",
-      "permissions": ["android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO"]
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -50,7 +55,8 @@
         {
           "photosPermission": "Share chart screenshots and photos in posts"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

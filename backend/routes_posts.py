@@ -42,6 +42,25 @@ class PostUpdate(BaseModel):
     mentions: Optional[List[str]] = None
 
 
+REACTIONS = ["😂", "🩷", "🤑", "🥳", "🔥", "🗣️", "🤗", "🤬"]
+DEFAULT_REACTION = "🩷"
+
+
+class ReactBody(BaseModel):
+    # null removes the member's reaction
+    reaction: Optional[str] = None
+
+
+async def reaction_summary(post_ids: List[str]) -> dict:
+    """post_id -> {emoji: count}. Legacy likes without a reaction count as the heart."""
+    out: dict = {pid: {} for pid in post_ids}
+    pipeline = [{"$match": {"post_id": {"$in": post_ids}}},
+                {"$group": {"_id": {"post_id": "$post_id", "reaction": {"$ifNull": ["$reaction", DEFAULT_REACTION]}}, "count": {"$sum": 1}}}]
+    async for row in db.likes.aggregate(pipeline):
+        out.setdefault(row["_id"]["post_id"], {})[row["_id"]["reaction"]] = row["count"]
+    return out
+
+
 async def resolve_mentions(text: str) -> List[str]:
     names = list({m.lower() for m in MENTION_RX.findall(text or "")})
     if not names:
@@ -66,7 +85,8 @@ async def enrich_posts(posts: List[dict], viewer_id: str) -> List[dict]:
     post_ids = [p["post_id"] for p in posts]
     mention_ids = [m for p in posts for m in (p.get("mentions") or [])]
     umap = await users_map([p["author_id"] for p in posts] + mention_ids)
-    liked = {d["post_id"] async for d in db.likes.find({"user_id": viewer_id, "post_id": {"$in": post_ids}}, NO_ID)}
+    mine = {d["post_id"]: d.get("reaction") or DEFAULT_REACTION async for d in db.likes.find({"user_id": viewer_id, "post_id": {"$in": post_ids}}, NO_ID)}
+    summary = await reaction_summary(post_ids)
     saved = {d["post_id"] async for d in db.bookmarks.find({"user_id": viewer_id, "post_id": {"$in": post_ids}}, NO_ID)}
     mmap = await mingle_summaries([p["author_id"] for p in posts if p.get("space") == "mingle"])
     out = []
@@ -78,7 +98,9 @@ async def enrich_posts(posts: List[dict], viewer_id: str) -> List[dict]:
         else:
             p["author"] = author_summary(umap.get(p["author_id"]))
             p["mentioned_users"] = [author_summary(umap[m]) for m in (p.get("mentions") or []) if m in umap]
-        p["liked"] = p["post_id"] in liked
+        p["liked"] = p["post_id"] in mine
+        p["my_reaction"] = mine.get(p["post_id"])
+        p["reactions"] = summary.get(p["post_id"], {})
         p["saved"] = p["post_id"] in saved
         p["is_mine"] = p["author_id"] == viewer_id
         p.pop("deleted_at", None)
@@ -196,21 +218,43 @@ async def delete_post(post_id: str, user=Depends(get_current_user)):
     return {"deleted": True}
 
 
+async def set_reaction(post_id: str, user: dict, reaction: Optional[str]) -> dict:
+    """One reaction per member per post. Notifies the author once; changing the emoji updates that alert instead of adding noise."""
+    post = await get_post_or_404(post_id, user["user_id"])
+    key = {"post_id": post_id, "user_id": user["user_id"]}
+    existing = await db.likes.find_one(key, NO_ID)
+    delta = 0
+    if reaction is None:
+        if existing:
+            await db.likes.delete_one(key)
+            delta = -1
+    elif existing:
+        await db.likes.update_one(key, {"$set": {"reaction": reaction}})
+        await db.notifications.update_many({"user_id": post["author_id"], "actor_id": user["user_id"], "type": "like", "post_id": post_id},
+                                           {"$set": {"reaction": reaction}})
+    else:
+        await db.likes.insert_one({**key, "reaction": reaction, "created_at": now_utc()})
+        delta = 1
+        await notify(post["author_id"], user["user_id"], "like", post_id=post_id, text=post.get("text"), reaction=reaction)
+    if delta:
+        await db.posts.update_one({"post_id": post_id}, {"$inc": {"likes_count": delta}})
+    fresh = await db.posts.find_one({"post_id": post_id}, NO_ID)
+    return {"liked": reaction is not None, "my_reaction": reaction, "likes_count": max(0, fresh["likes_count"]),
+            "reactions": (await reaction_summary([post_id]))[post_id]}
+
+
+@router.post("/posts/{post_id}/react")
+async def react(post_id: str, body: ReactBody, user=Depends(get_current_user)):
+    if body.reaction is not None and body.reaction not in REACTIONS:
+        raise HTTPException(status_code=400, detail="Unknown reaction")
+    return await set_reaction(post_id, user, body.reaction)
+
+
 @router.post("/posts/{post_id}/like")
 async def toggle_like(post_id: str, user=Depends(get_current_user)):
-    await get_post_or_404(post_id, user["user_id"])
-    key = {"post_id": post_id, "user_id": user["user_id"]}
-    if await db.likes.find_one(key, NO_ID):
-        await db.likes.delete_one(key)
-        delta, liked = -1, False
-    else:
-        await db.likes.insert_one({**key, "created_at": now_utc()})
-        delta, liked = 1, True
-        post = await db.posts.find_one({"post_id": post_id}, NO_ID)
-        await notify(post["author_id"], user["user_id"], "like", post_id=post_id, text=post.get("text"))
-    await db.posts.update_one({"post_id": post_id}, {"$inc": {"likes_count": delta}})
-    fresh = await db.posts.find_one({"post_id": post_id}, NO_ID)
-    return {"liked": liked, "likes_count": max(0, fresh["likes_count"])}
+    """Legacy heart toggle, kept so older clients keep working; it is just the 🩷 reaction."""
+    existing = await db.likes.find_one({"post_id": post_id, "user_id": user["user_id"]}, NO_ID)
+    return await set_reaction(post_id, user, None if existing else DEFAULT_REACTION)
 
 
 @router.post("/posts/{post_id}/bookmark")

@@ -27,12 +27,13 @@ FEATURES = {
 # Notifications
 # ---------------------------------------------------------------------------
 async def notify(recipient_id: str, actor_id: str, kind: str, post_id: Optional[str] = None,
-                 comment_id: Optional[str] = None, text: Optional[str] = None):
+                 comment_id: Optional[str] = None, text: Optional[str] = None, reaction: Optional[str] = None):
     if not recipient_id or recipient_id == actor_id:
         return
     await db.notifications.insert_one({
         "notification_id": new_id("ntf"), "user_id": recipient_id, "actor_id": actor_id, "type": kind,
-        "post_id": post_id, "comment_id": comment_id, "text": (text or "")[:120], "read": False, "created_at": now_utc(),
+        "post_id": post_id, "comment_id": comment_id, "text": (text or "")[:120], "reaction": reaction,
+        "read": False, "created_at": now_utc(),
     })
 
 
