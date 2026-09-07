@@ -134,6 +134,7 @@ def public_user(doc: dict, include_private: bool = False) -> dict:
     if include_private:
         out["email"] = doc.get("email")
         out["auth_providers"] = doc.get("auth_providers", [])
+    out["tier"] = (doc.get("membership") or {}).get("tier", "free")
     return out
 
 
@@ -223,3 +224,7 @@ async def ensure_indexes():
     await db.follows.create_index("following_id")
     await db.conversations.create_index("participants")
     await db.messages.create_index([("conversation_id", 1), ("created_at", 1)])
+    await db.mingle_profiles.create_index("user_id", unique=True)
+    await db.mingle_actions.create_index([("from_id", 1), ("to_id", 1)], unique=True)
+    await db.mingle_blocks.create_index([("blocker_id", 1), ("blocked_id", 1)], unique=True)
+    await db.mingle_connections.create_index("participants")

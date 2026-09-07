@@ -101,3 +101,8 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Iteration 7 (2026-06) — Activity inbox, Premium infra, Mingle inbox + 4 photos
+- Backend: routes_activity.py (notifications CRUD, membership w/ FEATURES registry & no pricing, activate/cancel preview), routes_mingle.py gated by require_feature("single_mingle") on PUT /me, /discover, /actions, /inbox; GET /mingle/inbox; photos[] ≤4. seed.ensure_demo_premium keeps demo Premium + seeds Ava(hi)/Marcus(interested) into demo inbox.
+- Frontend: Home bell + unread badge → app/notifications.tsx; Premium tab (status pill, plan picker, Activate/Cancel preview); /mingle paywall for free tier (src/components/premium-gate.tsx); Discover card MinglePhotos carousel; header inbox button → app/mingle/inbox.tsx; app/mingle/edit.tsx 4-slot photo grid.
+- Credentials: demo@leveluphub.com / Trader123! (Premium). Create a fresh account via signup to test free-tier paywall.
+- needs_retesting: true (backend + frontend)

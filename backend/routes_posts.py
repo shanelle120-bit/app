@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map
+from routes_activity import notify
 
 router = APIRouter(tags=["posts"])
 
@@ -105,6 +106,8 @@ async def create_post(body: PostCreate, user=Depends(get_current_user)):
     await db.posts.insert_one(doc)
     doc.pop("_id", None)
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"posts_count": 1}})
+    for m in doc["mentions"]:
+        await notify(m, user["user_id"], "mention", post_id=doc["post_id"], text=text)
     return (await enrich_posts([doc], user["user_id"]))[0]
 
 
@@ -149,6 +152,8 @@ async def update_post(post_id: str, body: PostUpdate, user=Depends(get_current_u
         {"$set": {"text": text, "mentions": mentions, "edited_at": now_utc()}},
     )
     fresh = await db.posts.find_one({"post_id": post_id}, NO_ID)
+    for m in set(mentions) - set(post.get("mentions") or []):
+        await notify(m, user["user_id"], "mention", post_id=post_id, text=text)
     return (await enrich_posts([fresh], user["user_id"]))[0]
 
 
@@ -172,6 +177,8 @@ async def toggle_like(post_id: str, user=Depends(get_current_user)):
     else:
         await db.likes.insert_one({**key, "created_at": now_utc()})
         delta, liked = 1, True
+        post = await db.posts.find_one({"post_id": post_id}, NO_ID)
+        await notify(post["author_id"], user["user_id"], "like", post_id=post_id, text=post.get("text"))
     await db.posts.update_one({"post_id": post_id}, {"$inc": {"likes_count": delta}})
     fresh = await db.posts.find_one({"post_id": post_id}, NO_ID)
     return {"liked": liked, "likes_count": max(0, fresh["likes_count"])}
@@ -241,6 +248,11 @@ async def create_comment(post_id: str, body: CommentCreate, user=Depends(get_cur
     await db.comments.insert_one(doc)
     doc.pop("_id", None)
     await db.posts.update_one({"post_id": post_id}, {"$inc": {"comments_count": 1}})
+    post = await db.posts.find_one({"post_id": post_id}, NO_ID)
+    await notify(post["author_id"], user["user_id"], "comment", post_id=post_id, comment_id=doc["comment_id"], text=text)
+    for m in mentions:
+        if m != post["author_id"]:
+            await notify(m, user["user_id"], "mention", post_id=post_id, comment_id=doc["comment_id"], text=text)
     mention_map = await users_map(mentions)
     doc["author"] = author_summary(user)
     doc["mentioned_users"] = [author_summary(mention_map[m]) for m in mentions if m in mention_map]

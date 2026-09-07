@@ -1,0 +1,31 @@
+{
+  "summary": "Single & Mingle feature fully tested — BACKEND 13/13 pytest cases pass (meta, profile CRUD, age<18 → 422, discover 403 without profile, seeded 4 members visible & self-excluded, filters: trader_type=Futures→Marcus only, min_age=30, location=austin→Sophia, looking_for=Dating→Marcus+Ava; mutual match creates connection_id + conversation_id, appears in /api/conversations and /mingle/connections for both, DELETE connection removes for both, acted-on user is excluded from future discover; privacy: allow_hi_from=connections blocks Hi with 403, everyone allows Hi and inserts '👋 Hi …' greeting into messages, block hides target from discover/connections and returns 404 to the blocked user's actions, report returns {reported:true}, DELETE /mingle/me leaves the account intact (auth/me + post create still work), mingle_badge on GET /users/{id} flips with show_badge). FRONTEND (Expo web @ 390x844): demo login → Premium → premium-card-single-mingle-press → mingle-welcome-screen with all exact copy ('Charts aren't the only place connections happen.', 'Join Single & Mingle', 'Not now'); Not now returns to Premium; Join → mingle-edit-screen, age 30 + location + Looking for Dating chip + save → mingle-discover-screen; Pass advances card, Interested advances card with toast, Say Hi shows 'Hi sent! Check your messages.' toast and Chat tab conversation contains the '👋 … Saying hi from Single & Mingle.' greeting; Filters → sheet → Trader type Futures → Apply shows only 'Marcus, 31 · Futures trader · Scalper' with '1 of 1' counter; Connections screen shows 'Your Mingles' header; Settings screen exposes mingle-toggle-active, mingle-toggle-badge, mingle-hi-everyone, mingle-hi-connections, mingle-leave-button; toggling active off → mingle-hidden-banner appears on Discover; toggling badge off → profile-mingle-badge disappears from Profile tab (was present when on); Premium tab shows 2 'Locked' cards for the other two tiers; mingle-leave-button → confirmation → returns to Premium and re-entering /mingle shows mingle-welcome-screen. Demo user's mingle profile cleaned up at end (GET /mingle/me → {profile:null}). No deprecated Expo packages, no red screens, no console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_mingle.py",
+    "/app/test_reports/pytest/iteration5_mingle.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_mingle.py: clean separation, uses NO_ID projection so no ObjectId leaks; Pydantic Field(ge=18) enforces age at validation layer (returns 422 as expected); Literal on ActionBody.action prevents invalid actions; blocked_ids() is O(N) and correctly bidirectional.",
+    "public_profile() safely strips PII (no email/phone) and only returns the whitelisted fields — good.",
+    "Discover query excludes {me} ∪ blocked ∪ everyone I already acted on; sort by created_at DESC then limit ≤ 50 — sensible; consider adding an index on mingle_profiles.{active, deleted_at, age} at scale but not required now.",
+    "Mutual match path is race-safe via find_one + insert_one on a shared participants array; conversation reuse via $all/$size=2 correctly deduplicates.",
+    "mingle/edit.tsx prefills sensibly from the main account (display_name, markets, trading_style, bio, avatar) — nice UX; canSave gate correctly disables save on age<18 or during upload.",
+    "mingle/index.tsx Discover uses testID mingle-card-{user_id}, mingle-card-name, mingle-pass/hi/interested-button, mingle-celebration, mingle-celebration-message/continue — matches spec exactly.",
+    "Filters sheet uses tone-coded Chips and applies via mingle-filters-apply; Reset via mingle-filters-reset resets local draft only until Apply — correct pattern."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (welcome + edit + discover pass/interested/hi + filters futures + connections + settings toggles + hidden banner + profile badge on/off + premium locked + leave + regression)"},
+  "seed_data_creation": "Test users created via /api/auth/signup (prefix 'mingle_' + hex) inside tests; each mutual-match/privacy test creates its own throw-away pair. Demo user's Mingle profile deleted at start and end of pytest run (autouse fixture) AND explicitly via curl DELETE /api/mingle/me after the frontend session — final state confirmed {profile:null}. Existing seeded members marcus_fx/sophia_swings/devon_crypto/ava_forex unchanged.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Mingle testIDs: mingle-welcome-screen, mingle-join-button, mingle-not-now-button, mingle-edit-screen, mingle-name-input, mingle-age-input, mingle-location-input, mingle-type-{futures|options|forex|stocks|crypto|multiple}, mingle-looking-{dating|friendship|trading-friends|networking|open-to-anything}, mingle-prompt-{red_flag|dating_trader|market_free}, mingle-prompt-answer-input, mingle-bio-input, mingle-instrument-input, mingle-interests-input, mingle-photo-button, mingle-save-button, mingle-discover-screen, mingle-card-{user_id}, mingle-card-name, mingle-pass-button, mingle-hi-button, mingle-interested-button, mingle-filters-button, mingle-connections-button, mingle-settings-button, mingle-hidden-banner, mingle-celebration, mingle-celebration-message, mingle-celebration-continue, mingle-filters-sheet, mingle-filters-reset, mingle-filters-apply, mingle-filter-min-age, mingle-filter-max-age, mingle-filter-location, mingle-filter-type-{lower}, mingle-filter-looking-{slug}, mingle-settings-screen, mingle-settings-edit, mingle-toggle-active, mingle-toggle-badge, mingle-hi-everyone, mingle-hi-connections, mingle-leave-button, profile-mingle-badge, premium-card-single-mingle-press. Settings screen is a stack route above tabs so tab-* bar isn't visible there; navigate via /mingle/settings. Web photo picker cannot be driven; other fields cover the flow.",
+  "rca_of_issue": "N/A — feature works end-to-end."
+}

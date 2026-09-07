@@ -2,6 +2,7 @@
 from datetime import timedelta
 
 from core import db, NO_ID, now_utc, new_id, password_hash, logger
+from routes_activity import notify
 
 AVATAR_1 = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&q=85&w=400"
 AVATAR_2 = "https://images.unsplash.com/photo-1580489944761-15a19d654956?crop=entropy&cs=srgb&fm=jpg&q=85&w=400"
@@ -126,3 +127,57 @@ async def seed():
         "created_at": now - timedelta(hours=1),
     })
     logger.info("Seed complete")
+
+
+MINGLE_SEED = {
+    "marcus_fx": dict(age=31, location="Miami, FL", trader_type="Futures", looking_for=["Dating", "Trading Friends"],
+                      bio="Scalper by day, sunset chaser by night. Looking for someone who gets the grind.",
+                      favorite_instrument="NQ", interests="Boxing, jazz bars, road trips", prompt_key="red_flag",
+                      prompt_answer="I check the futures open on vacation."),
+    "sophia_swings": dict(age=29, location="Austin, TX", trader_type="Options", looking_for=["Friendship", "Networking"],
+                          bio="Swing trader, weekend hiker, terrible at poker. Here for good people and better conversations.",
+                          favorite_instrument="NVDA", interests="Hiking, wine, indie films", prompt_key="market_free",
+                          prompt_answer="No screens, a trail, and tacos after."),
+    "devon_crypto": dict(age=27, location="Los Angeles, CA", trader_type="Crypto", looking_for=["Open to Anything"],
+                         bio="On-chain nerd who also touches grass. Ask me about SOL or sourdough.",
+                         favorite_instrument="ETH", interests="Baking, basketball, synths", prompt_key="dating_trader",
+                         prompt_answer="They say 'let me just check one thing' at 3am."),
+    "ava_forex": dict(age=33, location="London, UK", trader_type="Forex", looking_for=["Dating"],
+                      bio="London session trader. Two setups a day, then I close the laptop and live.",
+                      favorite_instrument="GBPUSD", interests="Yoga, galleries, cooking", prompt_key="red_flag",
+                      prompt_answer="I name my plants after currency pairs."),
+}
+
+
+async def seed_mingle():
+    """Opt the seeded demo traders into Single & Mingle so discovery has members."""
+    if await db.mingle_profiles.count_documents({}) > 0:
+        return
+    now = now_utc()
+    async for u in db.users.find({"username": {"$in": list(MINGLE_SEED)}}, NO_ID):
+        s = MINGLE_SEED[u["username"]]
+        await db.mingle_profiles.insert_one({
+            "user_id": u["user_id"], "display_name": u["display_name"].split(" ")[0], "photo_url": u.get("avatar_url"),
+            "photos": [p for p in [u.get("avatar_url"), COVER] if p],
+            "trading_style": u.get("trading_style"), **s, "active": True, "show_badge": True,
+            "allow_hi_from": "everyone", "created_at": now, "deleted_at": None,
+        })
+    logger.info("Mingle seed complete")
+
+
+async def ensure_demo_premium():
+    """Keep the demo account on Premium (preview) and give its Mingle inbox something to show."""
+    demo = await db.users.find_one({"email_normalized": DEMO_EMAIL}, NO_ID)
+    if not demo:
+        return
+    if (demo.get("membership") or {}).get("tier") != "premium":
+        await db.users.update_one({"user_id": demo["user_id"]}, {"$set": {"membership": {
+            "tier": "premium", "plan": "yearly", "since": now_utc(), "source": "demo_seed"}}})
+        logger.info("Demo account set to Premium")
+    if await db.mingle_actions.count_documents({"to_id": demo["user_id"]}) == 0:
+        now = now_utc()
+        seeds = {"ava_forex": "hi", "marcus_fx": "interested"}
+        async for u in db.users.find({"username": {"$in": list(seeds)}}, NO_ID):
+            await db.mingle_actions.update_one({"from_id": u["user_id"], "to_id": demo["user_id"]},
+                                               {"$set": {"action": seeds[u["username"]], "created_at": now}}, upsert=True)
+            await notify(demo["user_id"], u["user_id"], f"mingle_{seeds[u['username']]}")

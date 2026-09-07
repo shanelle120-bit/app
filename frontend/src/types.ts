@@ -26,9 +26,52 @@ export type User = {
   is_verified?: boolean;
   is_following?: boolean;
   is_me?: boolean;
+  mingle_badge?: boolean;
+  tier?: "free" | "premium";
   email?: string;
   auth_providers?: string[];
   created_at?: string;
+};
+
+export type NotificationType = "like" | "comment" | "mention" | "follow" | "mingle_hi" | "mingle_interested" | "mingle_match";
+
+export type Notification = {
+  notification_id: string;
+  user_id: string;
+  actor_id: string;
+  actor: AuthorSummary;
+  type: NotificationType;
+  post_id: string | null;
+  comment_id: string | null;
+  text: string;
+  read: boolean;
+  created_at: string;
+};
+
+export type PremiumPlan = {
+  id: "monthly" | "yearly";
+  name: string;
+  price: string | null;
+  price_note: string;
+  badge?: string;
+  perks: string[];
+};
+
+export type PremiumFeature = {
+  key: string;
+  name: string;
+  premium: boolean;
+  available: boolean;
+  unlocked: boolean;
+};
+
+export type Membership = {
+  tier: "free" | "premium";
+  plan: "monthly" | "yearly" | null;
+  since: string | null;
+  source: string | null;
+  plans: PremiumPlan[];
+  features: PremiumFeature[];
 };
 
 export type MediaItem = {

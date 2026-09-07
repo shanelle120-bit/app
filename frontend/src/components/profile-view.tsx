@@ -110,6 +110,13 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
           </Text>
         ) : null}
 
+        {user.mingle_badge ? (
+          <Pressable onPress={() => router.push("/mingle")} style={styles.mingleBadge} testID="profile-mingle-badge">
+            <Ionicons name="heart-circle" size={16} color={colors.brandPrimary} />
+            <Text style={styles.mingleBadgeText}>Single & Mingle member</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.statsRow}>
           <View style={styles.stat} testID="profile-posts-count">
             <Text style={styles.statValue}>{user.posts_count}</Text>
@@ -217,6 +224,8 @@ const useStyles = makeStyles((colors) => ({
   handle: { color: colors.muted, fontSize: 14, marginTop: 2 },
   bio: { color: colors.onSurfaceSecondary, fontSize: 15, lineHeight: 22, marginTop: 10 },
   statsRow: { flexDirection: "row", gap: 24, marginTop: 16 },
+  mingleBadge: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: 10, height: 28, marginTop: 10 },
+  mingleBadgeText: { color: colors.brandPrimary, fontSize: 12, fontWeight: "500" },
   stat: { minHeight: 44, justifyContent: "center" },
   statValue: { color: colors.onSurface, fontSize: 18, fontWeight: "500" },
   statLabel: { color: colors.muted, fontSize: 12 },

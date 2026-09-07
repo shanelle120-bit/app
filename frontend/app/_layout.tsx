@@ -48,6 +48,8 @@ function RootNavigator() {
         <Stack.Screen name="edit-profile" options={{ presentation: "modal" }} />
         <Stack.Screen name="search" />
         <Stack.Screen name="connections" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="mingle" />
       </Stack.Protected>
     </Stack>
   );

@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 7 (Activity inbox + Premium membership + Mingle inbox + Mingle photo gallery). BACKEND 15/15 pytest passing: demo login → tier=premium, /membership returns plans[] with price=null + price_note 'Pricing announced at launch' and features single_mingle (unlocked+available=true) / accountability & trading_only (available=false); fresh signup starts free → /mingle/discover|/me|/inbox all 402, POST /membership/activate returns tier=premium and /discover flips to 403 (needs profile), /cancel returns free, re-activate works; PUT /mingle/me photos=[4 urls] persists and photo_url=photos[0], 5 photos rejected (Pydantic Field max_length=4 → 422); notifications: fresh user's like/comment/follow/mingle_hi/mingle_interested against demo all appear in demo's GET /notifications with actor summaries, unread-count>0, POST /notifications/read-all zeroes it, self-actions do NOT notify; /mingle/inbox lists Ava (hi) + Marcus (interested) + fresh user, 'interested' toward Marcus creates mutual match (mingle:true) and removes from inbox, 'pass' also removes. FRONTEND (Expo web @ 390x844): demo login → home-screen; home-notifications-button visible; notifications-screen lists 15 rows with testID notification-<id>; badge hides after read-all + back to home; Premium tab shows pill 'PREMIUM · ACTIVE', premium-cancel-button visible, no dollar prices anywhere, 'Pricing announced at launch' text confirmed; Single & Mingle card taps into mingle-discover-screen; mingle-inbox-button + mingle-inbox-badge visible; mingle-inbox-screen lists Ava (Said hi + Interested button) and fresh user (Interested in you + Interested back); tapping row expands mingle-inbox-details-<id>. Cancel premium → pill 'PREMIUM · PREVIEW', plan-monthly + plan-yearly + premium-activate-button visible; tapping S&M card while free opens premium-paywall with paywall-activate + paywall-not-now buttons; activating from paywall lands on mingle-discover-screen. Demo left as Premium at end (verified via /auth/login → user.tier=='premium'). Marcus is removed from the inbox in the FE screenshot because the backend pytest already exercised 'interested back' on him — expected per spec.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "mingle-photos", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' — comes from <View pointerEvents=\"none\"> on the dots wrapper. Reference: /app/frontend/src/components/mingle-photos.tsx:41 and /app/frontend/app/mingle/index.tsx:130 (inboxBadge)."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration7_activity_membership.py",
+    "/app/test_reports/pytest/iteration7_results.xml"
+  ],
+  "action_items": [
+    "Minor: The review request states the S&M card testID is 'premium-card-single-mingle-press' (hyphen), but the actual implementation uses the feature key 'single_mingle' (underscore) → real testID is 'premium-card-single_mingle-press'. Everything works but reconcile naming with product spec / future tests.",
+    "Minor: Migrate props.pointerEvents → style.pointerEvents to silence React Native Web deprecation warning (mingle-photos.tsx dots container line 41, and mingle/index.tsx inbox badge line 130).",
+    "Note: The Discover card 'mingle-photo-dots' testID only renders when a member has 2+ photos. Existing seeded Mingle profiles only have a single photo_url, so dots won't render until multi-photo profiles are seeded or someone uploads via mingle-edit. Consider seeding a multi-photo profile so QA/demo can visually validate the swipeable carousel."
+  ],
+  "critical_code_review_comments": [
+    "routes_activity.notify() correctly no-ops when recipient == actor → self-notifications suppressed (verified).",
+    "PLANS[].price is None + price_note='Pricing announced at launch' → paywall UI safely shows no dollar amounts (verified: content scan for '$/mo etc' returned False).",
+    "require_feature() cleanly separates 402 (needs premium) vs 403 (feature not yet available) → good UX for future features and matches spec: fresh user gets 402 on /mingle/* until activation, then 403 on /discover until profile.",
+    "MingleProfileBody.photos = Field(max_length=4) enforces cap at validation layer (returns 422) AND upsert_me() defensively truncates to [:4] — belt-and-braces, both verified.",
+    "public_profile() derives photos = photos or [photo_url] so legacy single-photo seed rows stay compatible with the new gallery UI.",
+    "seed.ensure_demo_premium() is idempotent (only seeds actions if to_id count == 0) → good; however if demo previously acted 'pass'/'interested' on Ava/Marcus (as happened after iteration 5), those seeded incoming actions get filtered out of demo's inbox forever. Consider clearing demo's outgoing actions on start too, or expose an /admin/reset-demo helper. Tests worked around this by pre-clearing in an autouse fixture.",
+    "act(): 'hi' path opens a conversation + sends system greeting via send_system_message() → matches iteration 5 behavior; still enforces allow_hi_from privacy.",
+    "premium-gate.tsx paywall + premium.tsx cancel/activate correctly refetch membership → UI state stays in sync (verified in E2E)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration7_activity_membership.py (new)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "~95% (all critical flows passing; only untested: web file upload picker for photo grid — non-automatable as expected; mingle-photo-dots visibility requires multi-photo seed)"},
+  "seed_data_creation": "Fresh test user created via /api/auth/signup as 'iter7_<hex>@example.com' (not cleaned; backend has no delete-user endpoint). Autouse fixture reset demo's outgoing mingle_actions targeting seeded traders and re-upserted Ava(hi)/Marcus(interested) incoming actions so the inbox test reflects the spec. Demo mingle profile was recreated inside the test flow (previous iteration deleted it) as required by the review request ('don't delete the demo Mingle profile' — profile is now present).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "New testIDs added in iter7 — home-notifications-button, home-notifications-badge, notifications-screen, notifications-list, notification-<id>, notification-unread-dot; premium-screen, premium-status-pill, premium-card-<key> where key ∈ {single_mingle, accountability, trading_only} (underscore, not hyphen), premium-card-<key>-press, premium-membership-section, premium-cancel-button, premium-activate-button, premium-notify-button, plan-monthly, plan-yearly, premium-paywall, paywall-back-button, paywall-activate-button, paywall-not-now-button; mingle-inbox-screen, mingle-inbox-button, mingle-inbox-badge, mingle-inbox-<user_id>, mingle-inbox-details-<user_id>, mingle-inbox-chat-<user_id>, mingle-inbox-pass-<user_id>, mingle-inbox-interested-<user_id>, mingle-inbox-empty-discover; mingle-photo-grid, mingle-photo-slot-0..3, mingle-photo-tile-<slot>, mingle-photo-remove-<slot>, mingle-card-photos, mingle-photo-scroll, mingle-photo-dots. Demo state at exit: tier=premium (yearly, source=preview_activation), mingle_profile active + present. Use autouse fixture in test_iteration7_activity_membership.py as a template to reset demo's outgoing mingle actions before inbox-dependent tests.",
+  "rca_of_issue": "N/A — no bugs found in this iteration. All 15 backend pytest cases green; frontend E2E flows all passing."
+}

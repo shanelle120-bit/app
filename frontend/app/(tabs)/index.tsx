@@ -10,6 +10,7 @@ import { PostCard } from "@/src/components/post-card";
 import { StoriesRow } from "@/src/components/stories-row";
 import { Button, EmptyState, Loader } from "@/src/components/ui";
 import { postKeys } from "@/src/hooks/use-post-actions";
+import { useUnreadNotifications } from "@/src/hooks/use-notifications";
 import { useVisiblePostsTracker, VisiblePostsProvider } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
 import type { Post } from "@/src/types";
@@ -33,6 +34,7 @@ export default function Home() {
 
   const posts = query.data?.pages.flatMap((p) => p.items) ?? [];
   const { onViewableItemsChanged, viewabilityConfig, visible } = useVisiblePostsTracker();
+  const unread = useUnreadNotifications();
 
   const refresh = async () => {
     await Promise.all([query.refetch(), qc.invalidateQueries({ queryKey: ["stories"] })]);
@@ -51,9 +53,19 @@ export default function Home() {
               <Text style={styles.tagline}>Beyond the charts</Text>
             </View>
           </View>
-          <Pressable onPress={() => router.push("/search")} style={styles.searchBtn} testID="home-search-button">
-            <Ionicons name="search" size={20} color={colors.onSurface} />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Pressable onPress={() => router.push("/notifications")} style={styles.searchBtn} testID="home-notifications-button">
+              <Ionicons name={unread > 0 ? "notifications" : "notifications-outline"} size={20} color={colors.onSurface} />
+              {unread > 0 ? (
+                <View style={styles.badge} testID="home-notifications-badge">
+                  <Text style={styles.badgeText}>{unread > 99 ? "99+" : unread}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable onPress={() => router.push("/search")} style={styles.searchBtn} testID="home-search-button">
+              <Ionicons name="search" size={20} color={colors.onSurface} />
+            </Pressable>
+          </View>
         </View>
         <View style={styles.segment}>
           {(["all", "following"] as const).map((s) => (
@@ -106,6 +118,8 @@ const useStyles = makeStyles((colors) => ({
   brand: { color: colors.onSurface, fontSize: 17, fontWeight: "500", letterSpacing: 0.2 },
   tagline: { color: colors.muted, fontSize: 11, letterSpacing: 0.4 },
   searchBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", top: -2, right: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.error, borderWidth: 2, borderColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  badgeText: { color: colors.onError, fontSize: 10, fontWeight: "500" },
   segment: { flexDirection: "row", backgroundColor: colors.surfaceTertiary, borderRadius: 999, padding: 3, marginTop: 8, alignSelf: "flex-start" },
   segmentItem: { paddingHorizontal: 16, height: 32, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   segmentActive: { backgroundColor: colors.brandPrimary },

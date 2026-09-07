@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core import db, NO_ID, now_utc, get_current_user, public_user, author_summary, users_map
+from routes_activity import notify
 
 router = APIRouter(tags=["users"])
 
@@ -91,6 +92,8 @@ async def get_user(user_id: str, user=Depends(get_current_user)):
         {"author_id": user_id, "deleted_at": None, "media.type": "image"})
     result["videos_count"] = await db.posts.count_documents(
         {"author_id": user_id, "deleted_at": None, "media.type": "video"})
+    result["mingle_badge"] = bool(await db.mingle_profiles.find_one(
+        {"user_id": user_id, "deleted_at": None, "active": True, "show_badge": True}, NO_ID))
     return result
 
 
@@ -110,6 +113,7 @@ async def toggle_follow(user_id: str, user=Depends(get_current_user)):
         await db.follows.insert_one({"follower_id": user["user_id"], "following_id": user_id, "created_at": now_utc()})
         delta = 1
         following = True
+        await notify(user_id, user["user_id"], "follow")
     await db.users.update_one({"user_id": user_id}, {"$inc": {"followers_count": delta}})
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"following_count": delta}})
     fresh = await db.users.find_one({"user_id": user_id}, NO_ID)

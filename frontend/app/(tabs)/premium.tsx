@@ -1,20 +1,24 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PlanPicker } from "@/src/components/premium-gate";
 import { Button } from "@/src/components/ui";
+import { useMembership } from "@/src/hooks/use-membership";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
+import type { PremiumPlan } from "@/src/types";
 
 const HERO = "https://images.unsplash.com/photo-1689443111130-6e9c7dfd8f9e?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200";
 
 const SECTIONS = [
   {
-    key: "single-mingle",
+    key: "single_mingle",
     icon: "heart-circle-outline",
     title: "Single & Mingle",
     body: "Meet traders who get the lifestyle. A social space for connection beyond the charts.",
@@ -28,7 +32,7 @@ const SECTIONS = [
     tone: "cyan" as const,
   },
   {
-    key: "trading-only",
+    key: "trading_only",
     icon: "bar-chart-outline",
     title: "Trading Only",
     body: "Zero noise. Setups, execution, risk. A focused room for serious market talk.",
@@ -41,8 +45,12 @@ export default function Premium() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const router = useRouter();
+  const { membership, isPremium, feature, activate, cancel } = useMembership();
+  const [plan, setPlan] = useState<PremiumPlan["id"]>("yearly");
 
   const toneColor = { brand: colors.brandPrimary, cyan: colors.brandSecondary, blue: colors.brandTertiary };
+  const planName = membership?.plans.find((p) => p.id === membership.plan)?.name;
 
   return (
     <View style={styles.root} testID="premium-screen">
@@ -51,36 +59,105 @@ export default function Premium() {
           <Image source={{ uri: HERO }} style={styles.heroImage} contentFit="cover" />
           <LinearGradient colors={["rgba(11,15,25,0.2)", colors.surface]} style={styles.heroScrim} />
           <View style={[styles.heroContent, { paddingTop: insets.top + 24 }]}>
-            <View style={styles.pill}>
-              <Ionicons name="diamond" size={12} color={colors.brandSecondary} />
-              <Text style={styles.pillText}>PREMIUM · COMING SOON</Text>
+            <View style={[styles.pill, isPremium && { backgroundColor: colors.brandSoft }]} testID="premium-status-pill">
+              <Ionicons name="diamond" size={12} color={isPremium ? colors.brandPrimary : colors.brandSecondary} />
+              <Text style={[styles.pillText, isPremium && { color: colors.brandPrimary }]}>{isPremium ? "PREMIUM · ACTIVE" : "PREMIUM · PREVIEW"}</Text>
             </View>
-            <Text style={styles.title}>Level up your circle</Text>
-            <Text style={styles.subtitle}>Three exclusive areas are on the way. Members-only rooms built for how traders actually connect.</Text>
+            <Text style={styles.title}>{isPremium ? "You're a Premium member" : "Level up your circle"}</Text>
+            <Text style={styles.subtitle}>
+              {isPremium
+                ? `${planName ?? "Premium"} · members-only rooms are unlocked as they open.`
+                : "Members-only rooms built for how traders actually connect. Activate the free preview to unlock what's open today."}
+            </Text>
           </View>
         </View>
 
         <View style={styles.cards}>
-          {SECTIONS.map((s, i) => (
-            <Animated.View key={s.key} entering={FadeInDown.delay(i * 90).duration(400)} style={[styles.card, { borderColor: toneColor[s.tone] }]} testID={`premium-card-${s.key}`}>
-              <View style={styles.cardTop}>
-                <View style={[styles.cardIcon, { backgroundColor: colors.surfaceTertiary }]}>
-                  <Ionicons name={s.icon as any} size={26} color={toneColor[s.tone]} />
-                </View>
-                <View style={styles.lock}>
-                  <Ionicons name="lock-closed" size={12} color={colors.muted} />
-                  <Text style={styles.lockText}>Locked</Text>
-                </View>
-              </View>
-              <Text style={styles.cardTitle}>{s.title}</Text>
-              <Text style={styles.cardBody}>{s.body}</Text>
-            </Animated.View>
-          ))}
+          {SECTIONS.map((s, i) => {
+            const f = feature(s.key);
+            const available = f?.available ?? s.key === "single_mingle";
+            const unlocked = available && (f ? f.unlocked : isPremium);
+            return (
+              <Animated.View key={s.key} entering={FadeInDown.delay(i * 90).duration(400)} style={[styles.card, { borderColor: toneColor[s.tone] }]} testID={`premium-card-${s.key}`}>
+                <Pressable onPress={available ? () => router.push("/mingle") : undefined} disabled={!available} testID={`premium-card-${s.key}-press`}>
+                  <View style={styles.cardTop}>
+                    <View style={[styles.cardIcon, { backgroundColor: colors.surfaceTertiary }]}>
+                      <Ionicons name={s.icon as any} size={26} color={toneColor[s.tone]} />
+                    </View>
+                    {unlocked ? (
+                      <View style={[styles.lock, { backgroundColor: colors.brandSoft }]}>
+                        <Ionicons name="sparkles" size={12} color={colors.brandPrimary} />
+                        <Text style={[styles.lockText, { color: colors.brandPrimary }]}>Unlocked</Text>
+                      </View>
+                    ) : available ? (
+                      <View style={[styles.lock, { backgroundColor: colors.cyanSoft }]}>
+                        <Ionicons name="lock-closed" size={12} color={colors.brandSecondary} />
+                        <Text style={[styles.lockText, { color: colors.brandSecondary }]}>Premium</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.lock}>
+                        <Ionicons name="time-outline" size={12} color={colors.muted} />
+                        <Text style={styles.lockText}>Coming soon</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.cardTitle}>{s.title}</Text>
+                  <Text style={styles.cardBody}>{s.body}</Text>
+                  {available ? (
+                    <View style={styles.enterRow}>
+                      <Text style={styles.enterText}>{unlocked ? `Enter ${s.title}` : `Unlock ${s.title}`}</Text>
+                      <Ionicons name="arrow-forward" size={16} color={colors.brandSecondary} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              </Animated.View>
+            );
+          })}
         </View>
 
-        <View style={styles.cta}>
-          <Button title="Notify me when Premium launches" icon="notifications-outline" onPress={() => toast.show("You're on the list. We'll let you know.", "success")} testID="premium-notify-button" />
-          <Text style={styles.footnote}>No payments yet. Premium access will be added in a future release.</Text>
+        <View style={styles.cta} testID="premium-membership-section">
+          {isPremium ? (
+            <>
+              <View style={styles.statusCard}>
+                <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statusTitle}>Membership active</Text>
+                  <Text style={styles.statusBody}>{planName ?? "Premium"} · free preview, no payment taken. Pricing will be announced at launch.</Text>
+                </View>
+              </View>
+              <Button
+                title="Cancel preview membership"
+                variant="ghost"
+                loading={cancel.isPending}
+                onPress={() =>
+                  cancel.mutate(undefined, {
+                    onSuccess: () => toast.show("Premium cancelled. You're back on the free tier.", "info"),
+                    onError: (e: Error) => toast.show(e.message, "error"),
+                  })
+                }
+                testID="premium-cancel-button"
+              />
+            </>
+          ) : (
+            <>
+              <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
+              <PlanPicker plans={membership?.plans ?? []} value={plan} onChange={setPlan} />
+              <Button
+                title="Activate Premium (free preview)"
+                icon="sparkles"
+                loading={activate.isPending}
+                onPress={() =>
+                  activate.mutate(plan, {
+                    onSuccess: () => toast.show("Premium unlocked ✨ Single & Mingle is open.", "success"),
+                    onError: (e: Error) => toast.show(e.message, "error"),
+                  })
+                }
+                testID="premium-activate-button"
+              />
+              <Button title="Notify me when billing launches" variant="secondary" icon="notifications-outline" onPress={() => toast.show("You're on the list. We'll let you know.", "success")} testID="premium-notify-button" />
+              <Text style={styles.footnote}>No payment is taken during the preview. Pricing and billing will be announced at launch.</Text>
+            </>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -105,6 +182,12 @@ const useStyles = makeStyles((colors) => ({
   lockText: { color: colors.muted, fontSize: 11, letterSpacing: 0.5 },
   cardTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "500", marginTop: 14 },
   cardBody: { color: colors.silver, fontSize: 14, lineHeight: 21, marginTop: 6 },
-  cta: { paddingHorizontal: 16, marginTop: 24, gap: 10 },
+  enterRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 14, minHeight: 32 },
+  enterText: { color: colors.brandSecondary, fontSize: 14, fontWeight: "500" },
+  cta: { paddingHorizontal: 16, marginTop: 24, gap: 12 },
+  sectionLabel: { color: colors.muted, fontSize: 12, letterSpacing: 0.6 },
+  statusCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceSecondary, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16 },
+  statusTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "500" },
+  statusBody: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
   footnote: { color: colors.muted, fontSize: 12, textAlign: "center" },
 }));
