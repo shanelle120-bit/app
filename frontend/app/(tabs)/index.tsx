@@ -10,6 +10,7 @@ import { PostCard } from "@/src/components/post-card";
 import { StoriesRow } from "@/src/components/stories-row";
 import { Button, EmptyState, Loader } from "@/src/components/ui";
 import { postKeys } from "@/src/hooks/use-post-actions";
+import { useVisiblePostsTracker } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
 import type { Post } from "@/src/types";
 
@@ -31,6 +32,7 @@ export default function Home() {
   });
 
   const posts = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const { onViewableItemsChanged, viewabilityConfig, Provider: VisiblePosts } = useVisiblePostsTracker();
 
   const refresh = async () => {
     await Promise.all([query.refetch(), qc.invalidateQueries({ queryKey: ["stories"] })]);
@@ -62,11 +64,14 @@ export default function Home() {
         </View>
       </View>
 
+      <VisiblePosts>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.post_id}
         renderItem={({ item }) => <PostCard post={item} />}
         ListHeaderComponent={<StoriesRow />}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={query.isRefetching && !query.isFetchingNextPage} onRefresh={refresh} tintColor={colors.brandSecondary} />}
         onEndReached={() => query.hasNextPage && !query.isFetchingNextPage && query.fetchNextPage()}
@@ -88,6 +93,7 @@ export default function Home() {
         }
         testID="feed-list"
       />
+      </VisiblePosts>
     </View>
   );
 }

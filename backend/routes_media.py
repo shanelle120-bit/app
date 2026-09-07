@@ -1,8 +1,10 @@
+import re
 import uuid
+from collections import OrderedDict
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
@@ -10,7 +12,7 @@ from core import db, NO_ID, now_utc, get_current_user, put_object, get_object, A
 
 router = APIRouter(tags=["media"])
 
-MAX_UPLOAD_BYTES = 60 * 1024 * 1024
+MAX_UPLOAD_BYTES = 150 * 1024 * 1024
 ALLOWED_PREFIXES = ("image/", "video/")
 EXT_BY_TYPE = {
     "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
@@ -25,7 +27,7 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Only images and videos are allowed")
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="File too large (max 60MB)")
+        raise HTTPException(status_code=413, detail="File too large (max 150MB)")
     ext = EXT_BY_TYPE.get(content_type) or (file.filename or "bin").rsplit(".", 1)[-1].lower()[:5]
     path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4().hex}.{ext}"
     try:
@@ -49,17 +51,73 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
     return {"url": f"/api/files/{doc['path']}", "type": kind, "path": doc["path"], "content_type": content_type}
 
 
-@router.get("/files/{path:path}")
-async def serve_file(path: str):
+# Small in-process cache so video players issuing many Range requests don't
+# re-download the whole object from storage each time.
+_object_cache: "OrderedDict[str, tuple[bytes, str]]" = OrderedDict()
+_OBJECT_CACHE_MAX_BYTES = 300 * 1024 * 1024
+
+
+async def _load_object(path: str):
+    if path in _object_cache:
+        _object_cache.move_to_end(path)
+        return _object_cache[path]
+    content, content_type = await run_in_threadpool(get_object, path)
+    _object_cache[path] = (content, content_type)
+    total = sum(len(v[0]) for v in _object_cache.values())
+    while total > _OBJECT_CACHE_MAX_BYTES and len(_object_cache) > 1:
+        _, (evicted, _) = _object_cache.popitem(last=False)
+        total -= len(evicted)
+    return content, content_type
+
+
+def _parse_range(header: str, size: int):
+    m = re.match(r"bytes=(\d*)-(\d*)$", header.strip())
+    if not m:
+        return None
+    start_s, end_s = m.groups()
+    if start_s == "" and end_s == "":
+        return None
+    if start_s == "":
+        length = int(end_s)
+        start, end = max(0, size - length), size - 1
+    else:
+        start = int(start_s)
+        end = int(end_s) if end_s else size - 1
+    end = min(end, size - 1)
+    if start > end or start >= size:
+        return "invalid"
+    return start, end
+
+
+@router.api_route("/files/{path:path}", methods=["GET", "HEAD"])
+async def serve_file(path: str, request: Request):
     record = await db.media_files.find_one({"path": path, "deleted_at": None}, NO_ID)
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
     try:
-        content, content_type = await run_in_threadpool(get_object, path)
+        content, content_type = await _load_object(path)
     except Exception:
         raise HTTPException(status_code=404, detail="File not available")
-    return Response(content=content, media_type=record.get("content_type") or content_type,
-                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    media_type = record.get("content_type") or content_type
+    size = len(content)
+    headers = {"Cache-Control": "public, max-age=31536000, immutable", "Accept-Ranges": "bytes"}
+
+    range_header = request.headers.get("range")
+    if range_header:
+        rng = _parse_range(range_header, size)
+        if rng == "invalid":
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
+        if rng:
+            start, end = rng
+            headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+            headers["Content-Length"] = str(end - start + 1)
+            body = b"" if request.method == "HEAD" else content[start:end + 1]
+            return Response(content=body, status_code=206, media_type=media_type, headers=headers)
+
+    headers["Content-Length"] = str(size)
+    if request.method == "HEAD":
+        return Response(status_code=200, media_type=media_type, headers=headers)
+    return Response(content=content, media_type=media_type, headers=headers)
 
 
 # ---------------------------------------------------------------------------

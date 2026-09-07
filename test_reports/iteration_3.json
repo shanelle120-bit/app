@@ -1,0 +1,29 @@
+{
+  "summary": "Verified both targeted features + regression. BACKEND (18/18 new + 33/33 existing = 51 total, all green): HTTP Range on /api/files/{path} — 206 with correct Content-Range for 'bytes=0-1023' and suffix 'bytes=-500'; 416 with 'Content-Range: bytes */<size>' for out-of-range; 200 with Content-Length for plain GET; HEAD returns 200/206 with headers and empty body; Accept-Ranges: bytes on all responses; verified on a freshly uploaded MP4 AND on the seeded video path (level-up-trading-hub/uploads/user_d73046b26c41/f16549fa03ed4c4a8cb6058a5536dfdb.mp4). MENTIONS — POST /api/posts with mentions=[marcus_id] and text 'hi @marcus_fx and @ava_forex' stores only marcus (mentions=[marcus_id], mentioned_users=[marcus]); mentions=[] disables auto-resolution ([] stored even with @marcus_fx in text); mentions=[fake_id] → [] stored; mentions=[valid id whose @handle NOT in text] → [] stored; marcus's mentions tab (GET /api/users/{marcus_id}/posts?tab=mentions) includes the new post, ava's does not; feed items include mentioned_users field. Regression smoke covered like/bookmark/gif-comment/gifs-trending/conversations+message/stories/PUT me bio — all pass. FRONTEND (390x844 web preview): logged in as demo, feed shows post-video card with VIDEO badge, play indicator overlay and 'Tap for sound' text; <video src> points to /api/files/level-up-trading-hub/uploads/.../.mp4 as expected; clicking post-video-tap removes overlay AND flips native controls on (video.controls === true). MENTIONS composer: typing 'Nice trade @sop' shows mention-suggestions with mention-option-sophia_swings, tapping inserts exactly 'Nice trade @sophia_swings '; typing '@zzzz_nouser' displays 'No traders match \u201c@zzzz_nouser\u201d'; posting shows mention-sophia_swings highlighted pill in feed, tapping it navigates to profile with profile-username '@sophia_swings'; and no mention-zzzz_nouser testID exists (unresolved handle stayed plain text as required). No red screen, no non-codec console errors. Note: as expected, the headless Chromium reports H.264 MediaError code 4 for the actual pixel decode — this is a browser codec limitation and not an app bug; all app-level UI/state around the video worked correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_range_and_mentions.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_upload_fix.py",
+    "/app/test_reports/pytest/range_mentions_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_media.py _parse_range() correctly handles '' start / '' end / suffix ranges, clamps end to size-1, and returns 'invalid' when start >= size — matches RFC 7233 for the tested cases; the small in-process _object_cache (300MB cap, LRU eviction) is a good perf choice for serving many Range requests without re-reading storage.",
+    "routes_posts.py resolve_selected_mentions() correctly (a) dedupes/caps at 20 ids, (b) reads back @handles from text, (c) filters to accounts whose live username is still in the text — that's the exact 'stored only when @handle still typed' contract in the review request.",
+    "The two branches in create_post — resolve_selected_mentions when body.mentions is not None else auto resolve_mentions — cleanly implements the 'field provided (even []) disables auto-resolution' rule."
+  ],
+  "updated_files": ["/app/backend/tests/test_range_and_mentions.py"],
+  "success_rate": {"backend": "100% (51/51)", "frontend": "100% of requested video + mentions flows"},
+  "seed_data_creation": "Tests upload one small in-memory mp4 (~8KB, TEST-namespaced under demo user's uuid path) and create TEST_-prefixed posts, deleted via /api/posts DELETE in teardown. Frontend test posts cleaned up post-run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Range/HEAD contract on /api/files/{path} is now fully covered by test_range_and_mentions.py::TestVideoRange (6 tests + 1 best-effort on seeded path). Mention resolution rules are covered by TestMentions (5 tests). If the seeded video path is ever deleted, test_existing_seed_video_range will skip cleanly (already handled). Frontend selectors used: post-video, post-video-tap, mention-suggestions, mention-option-<username>, mention-<username>, profile-username, create-text-input, create-submit-button.",
+  "rca_of_issue": "N/A — verification run for two features (Range video streaming + selected-only mention storage). Both implementations match the spec; no bugs found on server or on the web preview."
+}

@@ -22,6 +22,9 @@ class MediaItem(BaseModel):
 class PostCreate(BaseModel):
     text: str = Field(default="", max_length=2000)
     media: List[MediaItem] = []
+    # user_ids explicitly selected from the @mention picker. When provided (even
+    # empty), only these are stored; free-typed @handles are treated as plain text.
+    mentions: Optional[List[str]] = None
 
 
 class CommentCreate(BaseModel):
@@ -38,17 +41,29 @@ async def resolve_mentions(text: str) -> List[str]:
     return [u["user_id"] async for u in cursor]
 
 
+async def resolve_selected_mentions(user_ids: List[str], text: str) -> List[str]:
+    """Keep only real accounts whose @username is still present in the text."""
+    ids = list({u for u in user_ids if u})[:20]
+    if not ids:
+        return []
+    typed = {m.lower() for m in MENTION_RX.findall(text or "")}
+    cursor = db.users.find({"user_id": {"$in": ids}, "deleted_at": None}, NO_ID)
+    return [u["user_id"] async for u in cursor if (u.get("username") or "").lower() in typed]
+
+
 async def enrich_posts(posts: List[dict], viewer_id: str) -> List[dict]:
     if not posts:
         return []
     post_ids = [p["post_id"] for p in posts]
-    umap = await users_map([p["author_id"] for p in posts])
+    mention_ids = [m for p in posts for m in (p.get("mentions") or [])]
+    umap = await users_map([p["author_id"] for p in posts] + mention_ids)
     liked = {d["post_id"] async for d in db.likes.find({"user_id": viewer_id, "post_id": {"$in": post_ids}}, NO_ID)}
     saved = {d["post_id"] async for d in db.bookmarks.find({"user_id": viewer_id, "post_id": {"$in": post_ids}}, NO_ID)}
     out = []
     for p in posts:
         p = dict(p)
         p["author"] = author_summary(umap.get(p["author_id"]))
+        p["mentioned_users"] = [author_summary(umap[m]) for m in (p.get("mentions") or []) if m in umap]
         p["liked"] = p["post_id"] in liked
         p["saved"] = p["post_id"] in saved
         p["is_mine"] = p["author_id"] == viewer_id
@@ -74,7 +89,7 @@ async def create_post(body: PostCreate, user=Depends(get_current_user)):
         "author_id": user["user_id"],
         "text": text,
         "media": [m.model_dump() for m in body.media],
-        "mentions": await resolve_mentions(text),
+        "mentions": await resolve_selected_mentions(body.mentions, text) if body.mentions is not None else await resolve_mentions(text),
         "likes_count": 0,
         "comments_count": 0,
         "shares_count": 0,

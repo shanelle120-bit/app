@@ -1,44 +1,105 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
+import { useEvent } from "expo";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import React, { memo, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import React, { memo, useEffect, useState } from "react";
+import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { mediaUrl, timeAgo } from "@/src/api";
 import { Avatar } from "@/src/components/ui";
 import { usePostActions } from "@/src/hooks/use-post-actions";
+import { usePostVisible } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
 import type { MediaItem, Post } from "@/src/types";
 
-function VideoBlock({ uri }: { uri: string }) {
+function VideoBlock({ uri, active }: { uri: string; active: boolean }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const [engaged, setEngaged] = useState(false);
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
   });
-  return <VideoView player={player} style={{ width: "100%", height: 260 }} contentFit="cover" nativeControls />;
+  const { isPlaying } = useEvent(player, "playingChange", { isPlaying: player.playing });
+  const { status } = useEvent(player, "statusChange", { status: player.status });
+
+  useEffect(() => {
+    if (active) player.play();
+    else {
+      player.pause();
+      if (engaged) {
+        player.muted = true;
+        setEngaged(false);
+      }
+    }
+  }, [active, player]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const engage = () => {
+    setEngaged(true);
+    player.muted = false;
+    player.play();
+  };
+
+  return (
+    <View style={styles.videoWrap} testID="post-video">
+      <VideoView player={player} style={styles.video} contentFit="cover" nativeControls={engaged} />
+      {!engaged ? (
+        <Pressable onPress={engage} style={styles.videoOverlay} testID="post-video-tap">
+          <View style={styles.videoBadge}>
+            <Ionicons name="videocam" size={12} color={colors.onSurface} />
+            <Text style={styles.videoBadgeText}>VIDEO</Text>
+          </View>
+          {status === "loading" ? (
+            <ActivityIndicator color={colors.onSurface} />
+          ) : !isPlaying ? (
+            <View style={styles.playCircle}>
+              <Ionicons name="play" size={28} color={colors.onSurface} style={{ marginLeft: 3 }} />
+            </View>
+          ) : null}
+          <View style={styles.muteBadge}>
+            <Ionicons name="volume-mute" size={14} color={colors.onSurface} />
+            <Text style={styles.videoBadgeText}>Tap for sound</Text>
+          </View>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
-export function RichText({ text, style }: { text: string; style: any }) {
+type MentionUser = { user_id: string; username: string };
+
+export function RichText({ text, style, mentions }: { text: string; style: any; mentions?: MentionUser[] }) {
   const { colors } = useTheme();
+  const router = useRouter();
   const parts = text.split(/(@[a-zA-Z0-9_]{3,24}|#[a-zA-Z0-9_]+)/g);
   return (
     <Text style={style}>
-      {parts.map((p, i) =>
-        p.startsWith("@") || p.startsWith("#") ? (
-          <Text key={i} style={{ color: colors.brandSecondary }}>
-            {p}
-          </Text>
-        ) : (
-          p
-        ),
-      )}
+      {parts.map((p, i) => {
+        if (p.startsWith("@")) {
+          const user = mentions?.find((m) => m.username?.toLowerCase() === p.slice(1).toLowerCase());
+          if (!user) return p;
+          return (
+            <Text key={i} style={{ color: colors.brandSecondary }} onPress={() => router.push(`/user/${user.user_id}`)} testID={`mention-${user.username}`}>
+              {p}
+            </Text>
+          );
+        }
+        if (p.startsWith("#")) {
+          return (
+            <Text key={i} style={{ color: colors.brandSecondary }}>
+              {p}
+            </Text>
+          );
+        }
+        return p;
+      })}
     </Text>
   );
 }
 
-export function PostMedia({ media, compact }: { media: MediaItem[]; compact?: boolean }) {
+export function PostMedia({ media, compact, active = true }: { media: MediaItem[]; compact?: boolean; active?: boolean }) {
   const styles = useStyles();
   const [preview, setPreview] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
@@ -48,7 +109,7 @@ export function PostMedia({ media, compact }: { media: MediaItem[]; compact?: bo
     <View style={[styles.mediaWrap, compact && { marginTop: 8 }]}>
       {media.map((m, i) => {
         const uri = mediaUrl(m.url)!;
-        if (m.type === "video") return <VideoBlock key={i} uri={uri} />;
+        if (m.type === "video") return <VideoBlock key={i} uri={uri} active={active} />;
         const ratio = m.width && m.height ? m.width / m.height : m.type === "gif" ? 1.3 : 1.5;
         return (
           <Pressable key={i} onPress={() => setPreview(uri)} testID={`post-media-${i}`}>
@@ -81,6 +142,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
   const router = useRouter();
   const { like, bookmark, share, remove } = usePostActions();
   const [menu, setMenu] = useState(false);
+  const visible = usePostVisible(post.post_id);
 
   const openDetail = () => {
     if (!detail) router.push(`/post/${post.post_id}`);
@@ -116,9 +178,9 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
       </View>
 
       <Pressable onPress={openDetail} disabled={detail} testID={`post-body-${post.post_id}`}>
-        {post.text ? <RichText text={post.text} style={[styles.text, detail && styles.textLarge]} /> : null}
+        {post.text ? <RichText text={post.text} style={[styles.text, detail && styles.textLarge]} mentions={post.mentioned_users} /> : null}
       </Pressable>
-      <PostMedia media={post.media} />
+      <PostMedia media={post.media} active={visible} />
 
       <View style={styles.actions}>
         <Pressable onPress={() => like.mutate(post)} style={styles.action} hitSlop={6} testID={`post-like-${post.post_id}`}>
@@ -186,6 +248,13 @@ const useStyles = makeStyles((colors) => ({
   text: { color: colors.onSurfaceSecondary, fontSize: 15, lineHeight: 22, paddingHorizontal: 14, paddingTop: 12 },
   textLarge: { fontSize: 17, lineHeight: 26 },
   mediaWrap: { marginTop: 12, backgroundColor: colors.surfaceTertiary },
+  videoWrap: { width: "100%", height: 280, backgroundColor: colors.surfaceTertiary },
+  video: { width: "100%", height: "100%" },
+  videoOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
+  playCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.overlay, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.borderStrong },
+  videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.overlay, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
+  muteBadge: { position: "absolute", bottom: 10, right: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.overlay, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  videoBadgeText: { color: colors.onSurface, fontSize: 11, letterSpacing: 0.6 },
   gifBadge: { position: "absolute", left: 10, bottom: 10, backgroundColor: colors.overlay, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   gifBadgeText: { color: colors.onSurface, fontSize: 11, letterSpacing: 1 },
   actions: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 6, gap: 4 },

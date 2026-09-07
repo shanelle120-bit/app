@@ -38,6 +38,8 @@ export function useMediaPicker() {
         quality: 0.8,
         allowsEditing: false,
         videoMaxDuration: 60,
+        // Export videos as H.264/AAC so they play back on every platform (avoids HEVC-only .mov files).
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (result.canceled || !result.assets?.length) return null;
       const a = result.assets[0];

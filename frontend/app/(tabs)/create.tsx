@@ -1,8 +1,8 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,7 +14,7 @@ import { Avatar, Button } from "@/src/components/ui";
 import { useMediaPicker } from "@/src/hooks/use-media-picker";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
-import type { Gif, MediaItem } from "@/src/types";
+import type { Gif, MediaItem, User } from "@/src/types";
 
 type Attachment = MediaItem & { local?: string; uploading?: boolean };
 
@@ -30,6 +30,36 @@ export default function CreatePost() {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [gifOpen, setGifOpen] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  // username -> user_id for accounts explicitly picked from the @mention suggestions
+  const [mentioned, setMentioned] = useState<Record<string, string>>({});
+
+  const mentionMatch = useMemo(() => text.slice(0, cursor).match(/(^|\s)@([a-zA-Z0-9_]{1,24})$/), [text, cursor]);
+  const mentionQuery = mentionMatch ? mentionMatch[2] : null;
+  const suggestions = useQuery({
+    queryKey: ["users", mentionQuery ?? ""],
+    queryFn: () => api<User[]>(`/users?q=${encodeURIComponent(mentionQuery ?? "")}&limit=6`),
+    enabled: mentionQuery !== null,
+    staleTime: 30_000,
+  });
+
+  const insertMention = (u: User) => {
+    if (!mentionMatch || !u.username) return;
+    const start = cursor - mentionMatch[0].length + mentionMatch[1].length;
+    const before = text.slice(0, start);
+    const after = text.slice(cursor);
+    const next = `${before}@${u.username} ${after.startsWith(" ") ? after.slice(1) : after}`;
+    setText(next);
+    setCursor(start + u.username.length + 2);
+    setMentioned((m) => ({ ...m, [u.username!.toLowerCase()]: u.user_id }));
+  };
+
+  const selectedMentionIds = () => {
+    const typed = new Set((text.match(/@([a-zA-Z0-9_]{3,24})/g) ?? []).map((t) => t.slice(1).toLowerCase()));
+    return Object.entries(mentioned)
+      .filter(([username]) => typed.has(username))
+      .map(([, id]) => id);
+  };
 
   const uploading = attachments.some((a) => a.uploading);
   const canPost = (text.trim().length > 0 || attachments.length > 0) && !uploading;
@@ -59,7 +89,11 @@ export default function CreatePost() {
     mutationFn: () =>
       api("/posts", {
         method: "POST",
-        body: { text: text.trim(), media: attachments.map(({ type, url, width, height }) => ({ type, url, width, height })) },
+        body: {
+          text: text.trim(),
+          media: attachments.map(({ type, url, width, height }) => ({ type, url, width, height })),
+          mentions: selectedMentionIds(),
+        },
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts"] });
@@ -68,6 +102,7 @@ export default function CreatePost() {
       qc.invalidateQueries({ queryKey: ["stories"] });
       setText("");
       setAttachments([]);
+      setMentioned({});
       toast.show("Posted to the hub", "success");
       router.replace("/(tabs)");
     },
@@ -77,6 +112,7 @@ export default function CreatePost() {
   const reset = () => {
     setText("");
     setAttachments([]);
+    setMentioned({});
     router.replace("/(tabs)");
   };
 
@@ -100,8 +136,13 @@ export default function CreatePost() {
         </View>
         <TextInput
           value={text}
-          onChangeText={setText}
-          placeholder="Share a setup, a lesson, or a win… Use @username to mention traders"
+          onChangeText={(t) => {
+            // Keep the caret in sync even when no selection event fires (typing at the end).
+            setCursor((c) => (c >= text.length ? t.length : c));
+            setText(t);
+          }}
+          onSelectionChange={(e) => setCursor(e.nativeEvent.selection.end)}
+          placeholder="Share a setup, a lesson, or a win… Type @ to mention a trader"
           placeholderTextColor={colors.muted}
           multiline
           autoFocus
@@ -151,6 +192,29 @@ export default function CreatePost() {
       </ScrollView>
 
       <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+        {mentionQuery !== null ? (
+          <View style={styles.suggestions} testID="mention-suggestions">
+            {suggestions.isLoading ? (
+              <ActivityIndicator color={colors.brandPrimary} style={{ padding: 12 }} />
+            ) : (suggestions.data ?? []).length === 0 ? (
+              <Text style={styles.suggestionEmpty}>No traders match “@{mentionQuery}”</Text>
+            ) : (
+              (suggestions.data ?? []).map((u) => (
+                <Pressable key={u.user_id} onPress={() => insertMention(u)} style={styles.suggestion} testID={`mention-option-${u.username}`}>
+                  <Avatar uri={u.avatar_url} name={u.display_name} size={32} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.suggestionName} numberOfLines={1}>
+                      {u.display_name}
+                    </Text>
+                    <Text style={styles.suggestionHandle} numberOfLines={1}>
+                      @{u.username}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))
+            )}
+          </View>
+        ) : null}
         <View style={styles.toolbar}>
           <Pressable style={styles.tool} onPress={() => addMedia("image")} testID="create-add-photo">
             <Ionicons name="images-outline" size={22} color={colors.brandSecondary} />
@@ -215,6 +279,11 @@ const useStyles = makeStyles((colors) => ({
     borderTopColor: colors.border,
     backgroundColor: colors.surfaceSecondary,
   },
+  suggestions: { backgroundColor: colors.surfaceSecondary, borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 4, maxHeight: 240 },
+  suggestion: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, minHeight: 48 },
+  suggestionName: { color: colors.onSurface, fontSize: 14, fontWeight: "500" },
+  suggestionHandle: { color: colors.muted, fontSize: 12 },
+  suggestionEmpty: { color: colors.muted, fontSize: 13, paddingHorizontal: 16, paddingVertical: 12 },
   tool: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 10, borderRadius: 999 },
   toolText: { color: colors.silver, fontSize: 13 },
   gifIcon: { borderWidth: 1.5, borderColor: colors.brandSecondary, borderRadius: 6, paddingHorizontal: 4, height: 20, justifyContent: "center" },

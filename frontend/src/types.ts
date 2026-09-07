@@ -45,6 +45,7 @@ export type Post = {
   text: string;
   media: MediaItem[];
   mentions: string[];
+  mentioned_users?: AuthorSummary[];
   likes_count: number;
   comments_count: number;
   shares_count: number;
