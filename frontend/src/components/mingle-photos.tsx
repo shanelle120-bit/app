@@ -31,7 +31,7 @@ export function MinglePhotos({ photos, testID }: { photos: string[]; testID?: st
   return (
     <View style={styles.fill} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} testID={testID}>
       {width > 0 ? (
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={32} style={styles.fill} testID="mingle-photo-scroll">
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={32} style={styles.scroll} testID="mingle-photo-scroll">
           {list.map((p, i) => (
             <Image key={`${p}-${i}`} source={{ uri: mediaUrl(p) }} style={{ width, height: "100%" }} contentFit="cover" transition={150} />
           ))}
@@ -50,6 +50,7 @@ export function MinglePhotos({ photos, testID }: { photos: string[]; testID?: st
 
 const useStyles = makeStyles((colors) => ({
   fill: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
+  scroll: { width: "100%", height: "100%" },
   dots: { position: "absolute", top: 12, left: 12, right: 12, flexDirection: "row", gap: 4 },
   dot: { flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.onSurface, opacity: 0.35 },
   dotActive: { opacity: 1 },
