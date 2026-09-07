@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map
+from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map, mingle_blocked_ids
 
 router = APIRouter(tags=["chat"])
 
@@ -111,7 +111,9 @@ async def list_messages(conversation_id: str, after: Optional[datetime] = None,
 @router.post("/conversations/{conversation_id}/messages", status_code=201)
 async def send_message(conversation_id: str, body: MessageCreate, user=Depends(get_current_user)):
     me = user["user_id"]
-    await get_conversation_or_404(conversation_id, me)
+    conv = await get_conversation_or_404(conversation_id, me)
+    if other_participant(conv, me) in await mingle_blocked_ids(me):
+        raise HTTPException(status_code=403, detail="You can't message this member")
     text = body.text.strip()
     if not text and not body.gif_url and not body.image_url:
         raise HTTPException(status_code=400, detail="Message cannot be empty")

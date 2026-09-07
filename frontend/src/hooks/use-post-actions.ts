@@ -8,6 +8,7 @@ import type { Post } from "@/src/types";
 
 export const postKeys = {
   feed: (scope: string) => ["posts", scope] as const,
+  mingleFeed: ["posts", "mingle"] as const,
   detail: (id: string) => ["post", id] as const,
   userPosts: (userId: string, tab: string) => ["userPosts", userId, tab] as const,
   saved: ["saved"] as const,

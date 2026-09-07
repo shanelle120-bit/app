@@ -147,29 +147,39 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  const isMingle = post.space === "mingle";
+
   const openDetail = () => {
     if (!detail) router.push(`/post/${post.post_id}`);
   };
-  const openAuthor = () => router.push(`/user/${post.author.user_id}`);
+  // Mingle posts open the author's Mingle profile, never their main Level Up profile.
+  const openAuthor = () => router.push(isMingle ? `/mingle/member/${post.author.user_id}` : `/user/${post.author.user_id}`);
 
   return (
     <View style={styles.card} testID={`post-card-${post.post_id}`}>
       <View style={styles.headerRow}>
         <Pressable onPress={openAuthor} style={styles.authorRow} testID={`post-author-${post.post_id}`}>
-          <Avatar uri={post.author.avatar_url} name={post.author.display_name} size={42} />
-          <View style={{ flex: 1 }}>
+          <Avatar uri={post.author.avatar_url} name={post.author.display_name} size={42} ring={isMingle} />
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={styles.name} numberOfLines={1}>
                 {post.author.display_name}
+                {isMingle && post.author.age ? `, ${post.author.age}` : ""}
               </Text>
-              {post.author.trading_style ? (
+              {isMingle ? (
+                <View style={styles.mingleTag} testID={`post-mingle-tag-${post.post_id}`}>
+                  <Ionicons name="heart" size={10} color={colors.brandPrimary} />
+                  <Text style={styles.mingleTagText}>Mingle</Text>
+                </View>
+              ) : post.author.trading_style ? (
                 <View style={styles.styleTag}>
                   <Text style={styles.styleTagText}>{post.author.trading_style}</Text>
                 </View>
               ) : null}
             </View>
             <Text style={styles.meta} numberOfLines={1}>
-              @{post.author.username} · {timeAgo(post.created_at)}
+              {isMingle ? (post.author.location ? `${post.author.location} · ` : "") : `@${post.author.username} · `}
+              {timeAgo(post.created_at)}
               {post.edited_at ? " · edited" : ""}
             </Text>
           </View>
@@ -195,14 +205,28 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
           <Ionicons name="chatbubble-outline" size={21} color={colors.silver} />
           <Text style={styles.actionText}>{post.comments_count}</Text>
         </Pressable>
-        <Pressable onPress={() => share.mutate(post)} style={styles.action} hitSlop={6} testID={`post-share-${post.post_id}`}>
-          <Ionicons name="paper-plane-outline" size={21} color={colors.silver} />
-          <Text style={styles.actionText}>{post.shares_count || ""}</Text>
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={() => bookmark.mutate(post)} hitSlop={6} style={styles.action} testID={`post-save-${post.post_id}`}>
-          <Ionicons name={post.saved ? "bookmark" : "bookmark-outline"} size={21} color={post.saved ? colors.brandSecondary : colors.silver} />
-        </Pressable>
+        {isMingle ? (
+          <>
+            <View style={{ flex: 1 }} />
+            {!post.is_mine ? (
+              <Pressable onPress={openAuthor} style={styles.action} hitSlop={6} testID={`post-mingle-profile-${post.post_id}`}>
+                <Ionicons name="hand-left-outline" size={19} color={colors.brandSecondary} />
+                <Text style={[styles.actionText, { color: colors.brandSecondary }]}>Say hi · Interested</Text>
+              </Pressable>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Pressable onPress={() => share.mutate(post)} style={styles.action} hitSlop={6} testID={`post-share-${post.post_id}`}>
+              <Ionicons name="paper-plane-outline" size={21} color={colors.silver} />
+              <Text style={styles.actionText}>{post.shares_count || ""}</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <Pressable onPress={() => bookmark.mutate(post)} hitSlop={6} style={styles.action} testID={`post-save-${post.post_id}`}>
+              <Ionicons name={post.saved ? "bookmark" : "bookmark-outline"} size={21} color={post.saved ? colors.brandSecondary : colors.silver} />
+            </Pressable>
+          </>
+        )}
       </View>
 
       <Modal visible={menu} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
@@ -259,6 +283,8 @@ const useStyles = makeStyles((colors) => ({
   name: { color: colors.onSurface, fontSize: 15, fontWeight: "500", flexShrink: 1 },
   styleTag: { backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: 8, height: 20, justifyContent: "center" },
   styleTagText: { color: colors.brandPrimary, fontSize: 11 },
+  mingleTag: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: 7, height: 20 },
+  mingleTagText: { color: colors.brandPrimary, fontSize: 11 },
   meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
   more: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   text: { color: colors.onSurfaceSecondary, fontSize: 15, lineHeight: 22, paddingHorizontal: 14, paddingTop: 12 },

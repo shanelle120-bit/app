@@ -8,11 +8,12 @@ import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { MingleNav } from "@/src/components/mingle-nav";
 import { MinglePhotos } from "@/src/components/mingle-photos";
 import { PremiumPaywall } from "@/src/components/premium-gate";
 import { Button, Chip, EmptyState, IconButton, Loader } from "@/src/components/ui";
 import { useMembership } from "@/src/hooks/use-membership";
-import { DEFAULT_FILTERS, type MingleActionResult, type MingleFilters, type MingleInboxItem, type MingleMeta, type MingleProfile } from "@/src/mingle-types";
+import { DEFAULT_FILTERS, type MingleActionResult, type MingleFilters, type MingleMeta, type MingleProfile } from "@/src/mingle-types";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
 
@@ -90,8 +91,6 @@ function Discover({ profile, meta }: { profile: MingleProfile; meta?: MingleMeta
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
     .join("&");
   const discover = useQuery({ queryKey: ["mingle", "discover", qs], queryFn: () => api<MingleProfile[]>(`/mingle/discover?${qs}`) });
-  const inbox = useQuery({ queryKey: ["mingle", "inbox"], queryFn: () => api<MingleInboxItem[]>("/mingle/inbox") });
-  const inboxCount = inbox.data?.length ?? 0;
   const members = discover.data ?? [];
   const current = members[index];
 
@@ -124,15 +123,6 @@ function Discover({ profile, meta }: { profile: MingleProfile; meta?: MingleMeta
           <Text style={styles.headerSub}>Hi {profile.display_name} · {profile.active ? "visible" : "hidden"}</Text>
         </View>
         <IconButton name="options-outline" onPress={() => setFiltersOpen(true)} testID="mingle-filters-button" />
-        <View>
-          <IconButton name={inboxCount ? "mail-unread-outline" : "mail-outline"} onPress={() => router.push("/mingle/inbox")} testID="mingle-inbox-button" />
-          {inboxCount ? (
-            <View style={[styles.inboxBadge, { pointerEvents: "none" }]} testID="mingle-inbox-badge">
-              <Text style={styles.inboxBadgeText}>{inboxCount > 9 ? "9+" : inboxCount}</Text>
-            </View>
-          ) : null}
-        </View>
-        <IconButton name="chatbubbles-outline" onPress={() => router.push("/mingle/connections")} testID="mingle-connections-button" />
         <IconButton name="settings-outline" onPress={() => router.push("/mingle/settings")} testID="mingle-settings-button" />
       </View>
 
@@ -158,7 +148,7 @@ function Discover({ profile, meta }: { profile: MingleProfile; meta?: MingleMeta
           }
         />
       ) : (
-        <ScrollView contentContainerStyle={[styles.cardScroll, { paddingBottom: insets.bottom + 24 }]} key={current.user_id}>
+        <ScrollView contentContainerStyle={[styles.cardScroll, { paddingBottom: 24 }]} key={current.user_id}>
           <Animated.View entering={FadeInUp.duration(350)} style={styles.card} testID={`mingle-card-${current.user_id}`}>
             <View style={styles.photoWrap}>
               <MinglePhotos photos={current.photos?.length ? current.photos : current.photo_url ? [current.photo_url] : []} testID="mingle-card-photos" />
@@ -229,6 +219,8 @@ function Discover({ profile, meta }: { profile: MingleProfile; meta?: MingleMeta
           </Text>
         </ScrollView>
       )}
+
+      <MingleNav current="discover" />
 
       <FiltersSheet visible={filtersOpen} filters={filters} meta={meta} onClose={() => setFiltersOpen(false)} onApply={(f) => { setFilters(f); setIndex(0); setFiltersOpen(false); }} />
 
@@ -316,8 +308,6 @@ const useStyles = makeStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "500" },
   headerSub: { color: colors.muted, fontSize: 12 },
-  inboxBadge: { position: "absolute", top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.brandPrimary, borderWidth: 2, borderColor: colors.surface, alignItems: "center", justifyContent: "center" },
-  inboxBadgeText: { color: colors.onBrandPrimary, fontSize: 10, fontWeight: "500" },
   hiddenBanner: { flexDirection: "row", alignItems: "center", gap: 8, margin: 12, padding: 12, borderRadius: 12, backgroundColor: colors.surfaceTertiary },
   hiddenText: { color: colors.silver, fontSize: 13, flex: 1 },
   cardScroll: { padding: 16 },

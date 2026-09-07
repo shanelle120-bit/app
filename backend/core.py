@@ -159,6 +159,36 @@ async def users_map(user_ids: list) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Single & Mingle identity helpers (shared by posts, chat, notifications)
+# ---------------------------------------------------------------------------
+async def mingle_blocked_ids(user_id: str) -> set:
+    ids = set()
+    async for b in db.mingle_blocks.find({"$or": [{"blocker_id": user_id}, {"blocked_id": user_id}]}, NO_ID):
+        ids.add(b["blocked_id"] if b["blocker_id"] == user_id else b["blocker_id"])
+    return ids
+
+
+def mingle_summary(p: Optional[dict], user_id: Optional[str] = None) -> dict:
+    """Author-shaped summary built from a Mingle profile so Mingle content never exposes the main identity."""
+    if not p:
+        return {"user_id": user_id, "display_name": "Mingle member", "username": "", "avatar_url": None, "mingle": True}
+    photos = p.get("photos") or []
+    return {"user_id": p["user_id"], "display_name": p.get("display_name"), "username": "",
+            "avatar_url": p.get("photo_url") or (photos[0] if photos else None), "trading_style": p.get("trading_style"),
+            "age": p.get("age"), "location": p.get("location"), "mingle": True}
+
+
+async def mingle_summaries(user_ids: list) -> dict:
+    ids = list({u for u in user_ids if u})
+    if not ids:
+        return {}
+    out = {}
+    async for p in db.mingle_profiles.find({"user_id": {"$in": ids}}, NO_ID):
+        out[p["user_id"]] = mingle_summary(p)
+    return {i: out.get(i) or mingle_summary(None, i) for i in ids}
+
+
+# ---------------------------------------------------------------------------
 # Object storage
 # ---------------------------------------------------------------------------
 storage_key: Optional[str] = None

@@ -43,6 +43,8 @@ export default function PostDetail() {
   };
 
   const postQuery = useQuery({ queryKey: postKeys.detail(id), queryFn: () => api<Post>(`/posts/${id}`), enabled: !!id });
+  const isMingle = postQuery.data?.space === "mingle";
+  const openAuthor = (userId: string) => router.push(isMingle ? `/mingle/member/${userId}` : `/user/${userId}`);
   const commentsQuery = useQuery({ queryKey: ["comments", id], queryFn: () => api<Comment[]>(`/posts/${id}/comments`), enabled: !!id });
 
   const rows = useMemo<Row[]>(() => {
@@ -97,7 +99,7 @@ export default function PostDetail() {
   return (
     <View style={styles.root} testID="post-detail-screen">
       <View style={{ paddingTop: insets.top }}>
-        <ScreenHeader title="Post" onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))} />
+        <ScreenHeader title={isMingle ? "Mingle post" : "Post"} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))} />
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
         {postQuery.isLoading ? (
@@ -116,14 +118,14 @@ export default function PostDetail() {
             }
             renderItem={({ item }) => (
               <View style={[styles.comment, item.depth > 0 && styles.reply]} testID={`comment-${item.comment_id}`}>
-                <Pressable onPress={() => router.push(`/user/${item.author.user_id}`)}>
+                <Pressable onPress={() => openAuthor(item.author.user_id)}>
                   <Avatar uri={item.author.avatar_url} name={item.author.display_name} size={item.depth > 0 ? 28 : 34} />
                 </Pressable>
                 <View style={{ flex: 1 }}>
                   <View style={styles.bubble}>
                     <View style={styles.commentHead}>
                       <Text style={styles.commentName}>{item.author.display_name}</Text>
-                      <Text style={styles.commentMeta}>@{item.author.username} · {timeAgo(item.created_at)}</Text>
+                      <Text style={styles.commentMeta}>{item.author.username ? `@${item.author.username} · ` : ""}{timeAgo(item.created_at)}</Text>
                     </View>
                     {item.text ? <RichText text={item.text} style={styles.commentText} mentions={item.mentioned_users} /> : null}
                     {item.gif_url ? <Image source={{ uri: item.gif_url }} style={styles.commentGif} contentFit="cover" /> : null}
@@ -155,11 +157,11 @@ export default function PostDetail() {
         )}
 
         <View style={[styles.composer, { paddingBottom: insets.bottom + 8 }]}>
-          <MentionSuggestions query={mentions.query} suggestions={mentions.suggestions} onSelect={insertMention} testID="comment-mention-suggestions" />
+          {!isMingle ? <MentionSuggestions query={mentions.query} suggestions={mentions.suggestions} onSelect={insertMention} testID="comment-mention-suggestions" /> : null}
           {replyTo ? (
             <View style={styles.replyBar}>
               <Text style={styles.replyText} numberOfLines={1}>
-                Replying to <Text style={{ color: colors.brandSecondary }}>@{replyTo.author.username}</Text>
+                Replying to <Text style={{ color: colors.brandSecondary }}>{replyTo.author.username ? `@${replyTo.author.username}` : replyTo.author.display_name}</Text>
               </Text>
               <Pressable onPress={() => setReplyTo(null)} hitSlop={8} testID="comment-cancel-reply">
                 <Ionicons name="close" size={16} color={colors.muted} />
@@ -186,7 +188,7 @@ export default function PostDetail() {
                 setText(t);
               }}
               onSelectionChange={(e) => setCursor(e.nativeEvent.selection.end)}
-              placeholder={replyTo ? "Write a reply… @ to mention" : "Add a comment… @ to mention"}
+              placeholder={replyTo ? (isMingle ? "Write a reply…" : "Write a reply… @ to mention") : isMingle ? "Add a comment…" : "Add a comment… @ to mention"}
               placeholderTextColor={colors.muted}
               style={styles.input}
               multiline

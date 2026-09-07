@@ -89,9 +89,9 @@ async def get_user(user_id: str, user=Depends(get_current_user)):
     if user_id == user["user_id"]:
         result["email"] = user.get("email")
     result["photos_count"] = await db.posts.count_documents(
-        {"author_id": user_id, "deleted_at": None, "media.type": "image"})
+        {"author_id": user_id, "deleted_at": None, "media.type": "image", "space": {"$ne": "mingle"}})
     result["videos_count"] = await db.posts.count_documents(
-        {"author_id": user_id, "deleted_at": None, "media.type": "video"})
+        {"author_id": user_id, "deleted_at": None, "media.type": "video", "space": {"$ne": "mingle"}})
     result["mingle_badge"] = bool(await db.mingle_profiles.find_one(
         {"user_id": user_id, "deleted_at": None, "active": True, "show_badge": True}, NO_ID))
     return result
@@ -145,7 +145,7 @@ async def stories(user=Depends(get_current_user)):
     latest = {}
     if ids:
         pipeline = [
-            {"$match": {"author_id": {"$in": ids}, "deleted_at": None}},
+            {"$match": {"author_id": {"$in": ids}, "deleted_at": None, "space": {"$ne": "mingle"}}},
             {"$sort": {"created_at": -1}},
             {"$group": {"_id": "$author_id", "latest": {"$first": "$created_at"}, "post_id": {"$first": "$post_id"}}},
         ]

@@ -6,6 +6,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, timeAgo } from "@/src/api";
+import { MingleNav } from "@/src/components/mingle-nav";
 import { Avatar, Button, Chip, EmptyState, Loader, ScreenHeader } from "@/src/components/ui";
 import type { MingleActionResult, MingleInboxItem } from "@/src/mingle-types";
 import { makeStyles, useTheme } from "@/src/theme";
@@ -56,8 +57,8 @@ export default function MingleInbox() {
             <Pressable onPress={() => setExpanded(open ? null : p.user_id)} style={styles.card} testID={`mingle-inbox-${p.user_id}`}>
               <View style={styles.rowTop}>
                 <Avatar uri={p.photos?.[0] ?? p.photo_url} name={p.display_name} size={56} ring />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.name} numberOfLines={1}>
                     {p.display_name}, {p.age}
                   </Text>
                   <Text style={styles.meta} numberOfLines={1}>
@@ -88,6 +89,7 @@ export default function MingleInbox() {
                       <Text style={styles.promptAnswer}>{p.prompt_answer}</Text>
                     </View>
                   ) : null}
+                  <Button title="View Mingle profile" small variant="ghost" icon="person-circle-outline" onPress={() => router.push(`/mingle/member/${p.user_id}`)} testID={`mingle-inbox-profile-${p.user_id}`} />
                 </View>
               ) : null}
 
@@ -110,6 +112,7 @@ export default function MingleInbox() {
           )
         }
       />
+      <MingleNav current="inbox" />
     </View>
   );
 }

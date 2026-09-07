@@ -82,8 +82,16 @@ export default function MingleSettings() {
             ))}
           </View>
 
-          <Text style={styles.sectionLabel}>SAFETY</Text>
-          <View style={styles.notice}>
+          <Text style={styles.sectionLabel}>SAFETY & PRIVACY</Text>
+          <Pressable onPress={() => router.push("/mingle/blocked")} style={styles.rowBtn} testID="mingle-settings-blocked">
+            <Ionicons name="ban-outline" size={20} color={colors.brandSecondary} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.rowTitle}>Blocked members</Text>
+              <Text style={styles.rowSub}>Review who you&apos;ve blocked and unblock if you change your mind</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+          <View style={[styles.notice, { marginTop: 10 }]}>
             <Ionicons name="shield-checkmark-outline" size={18} color={colors.brandSecondary} />
             <Text style={styles.noticeText}>{meta.data?.safety_notice} Block or report anyone from Your Mingles.</Text>
           </View>

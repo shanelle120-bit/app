@@ -61,3 +61,19 @@ export type MingleFilters = {
 };
 
 export const DEFAULT_FILTERS: MingleFilters = { min_age: 18, max_age: 99, location: "", trader_type: "", trading_style: "", looking_for: "" };
+
+export type MingleMember = {
+  profile: MingleProfile;
+  is_me: boolean;
+  my_action: "interested" | "hi" | "pass" | null;
+  their_action: "interested" | "hi" | "pass" | null;
+  connection_id: string | null;
+  conversation_id: string | null;
+};
+
+export type MingleBlocked = {
+  user_id: string;
+  display_name: string;
+  photo_url: string | null;
+  blocked_at: string;
+};

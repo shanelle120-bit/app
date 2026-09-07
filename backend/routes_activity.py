@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map, public_user
+from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map, public_user, mingle_summaries
 
 router = APIRouter(tags=["activity"])
 
@@ -41,8 +41,13 @@ async def list_notifications(user=Depends(get_current_user)):
     cursor = db.notifications.find({"user_id": user["user_id"]}, NO_ID).sort("created_at", -1).limit(100)
     items = [n async for n in cursor]
     umap = await users_map([n["actor_id"] for n in items])
+    post_ids = [n["post_id"] for n in items if n.get("post_id")]
+    mingle_posts = {p["post_id"] async for p in db.posts.find({"post_id": {"$in": post_ids}, "space": "mingle"}, NO_ID)} if post_ids else set()
     for n in items:
-        n["actor"] = author_summary(umap.get(n["actor_id"]))
+        n["mingle"] = n["type"].startswith("mingle_") or n.get("post_id") in mingle_posts
+    mmap = await mingle_summaries([n["actor_id"] for n in items if n["mingle"]])
+    for n in items:
+        n["actor"] = mmap[n["actor_id"]] if n["mingle"] else author_summary(umap.get(n["actor_id"]))
     return items
 
 

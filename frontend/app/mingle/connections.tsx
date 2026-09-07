@@ -6,6 +6,7 @@ import { FlatList, Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, timeAgo } from "@/src/api";
+import { MingleNav } from "@/src/components/mingle-nav";
 import { Avatar, Button, EmptyState, Loader, ScreenHeader } from "@/src/components/ui";
 import type { MingleConnection } from "@/src/mingle-types";
 import { makeStyles, useTheme } from "@/src/theme";
@@ -45,7 +46,7 @@ export default function MingleConnections() {
   return (
     <View style={styles.root} testID="mingle-connections-screen">
       <View style={{ paddingTop: insets.top }}>
-        <ScreenHeader title="Your Mingles" onBack={() => router.back()} />
+        <ScreenHeader title="Your Mingles" onBack={() => (router.canGoBack() ? router.back() : router.replace("/mingle"))} />
       </View>
       <FlatList
         data={list.data ?? []}
@@ -53,16 +54,18 @@ export default function MingleConnections() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         renderItem={({ item }) => (
           <View style={styles.row} testID={`mingle-connection-${item.connection_id}`}>
-            <Avatar uri={item.other.photo_url} name={item.other.display_name} size={52} ring />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>
-                {item.other.display_name}, {item.other.age}
-              </Text>
-              <Text style={styles.meta} numberOfLines={1}>
-                {item.other.location ? `${item.other.location} · ` : ""}Mingled {timeAgo(item.created_at)} ago
-              </Text>
-            </View>
-            <Button title="Message" small icon="chatbubble-outline" onPress={() => item.conversation_id && router.push(`/chat/${item.conversation_id}`)} testID={`mingle-message-${item.connection_id}`} />
+            <Pressable onPress={() => router.push(`/mingle/member/${item.other.user_id}`)} style={styles.identity} testID={`mingle-connection-profile-${item.connection_id}`}>
+              <Avatar uri={item.other.photos?.[0] ?? item.other.photo_url} name={item.other.display_name} size={52} ring />
+              <View style={styles.identityText}>
+                <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+                  {item.other.display_name}, {item.other.age}
+                </Text>
+                <Text style={styles.meta} numberOfLines={1}>
+                  {item.other.location ? `${item.other.location} · ` : ""}Mingled {timeAgo(item.created_at)} ago
+                </Text>
+              </View>
+            </Pressable>
+            <Button title="Message" small icon="chatbubble-outline" onPress={() => item.conversation_id && router.push(`/chat/${item.conversation_id}`)} style={styles.messageBtn} testID={`mingle-message-${item.connection_id}`} />
             <Pressable onPress={() => setTarget(item)} hitSlop={8} style={styles.more} testID={`mingle-more-${item.connection_id}`}>
               <Ionicons name="ellipsis-vertical" size={20} color={colors.muted} />
             </Pressable>
@@ -70,6 +73,7 @@ export default function MingleConnections() {
         )}
         ListEmptyComponent={list.isLoading ? <Loader /> : <EmptyState icon="heart-outline" title="No Mingles yet" subtitle="When you and another member are both interested, they'll show up here." />}
       />
+      <MingleNav current="connections" />
       <Modal visible={!!target} transparent animationType="fade" onRequestClose={() => setTarget(null)}>
         <Pressable style={styles.backdrop} onPress={() => setTarget(null)}>
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]} testID="mingle-connection-menu">
@@ -99,10 +103,14 @@ export default function MingleConnections() {
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.surface },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  // flex:1 + minWidth:0 lets long names truncate instead of squeezing the row on web/narrow phones.
+  identity: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12 },
+  identityText: { flex: 1, minWidth: 0 },
   name: { color: colors.onSurface, fontSize: 16, fontWeight: "500" },
   meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  more: { width: 36, height: 44, alignItems: "center", justifyContent: "center" },
+  messageBtn: { flexShrink: 0 },
+  more: { width: 32, height: 44, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   backdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: "flex-end" },
   sheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 4 },
   sheetTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "500", paddingHorizontal: 12, paddingVertical: 8 },

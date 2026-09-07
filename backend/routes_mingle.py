@@ -1,10 +1,12 @@
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map
+from core import db, NO_ID, now_utc, new_id, get_current_user, users_map, mingle_blocked_ids as blocked_ids
 from routes_activity import notify, require_premium
+from routes_posts import MediaItem, enrich_posts
 
 router = APIRouter(prefix="/mingle", tags=["mingle"])
 
@@ -64,13 +66,6 @@ def public_profile(p: dict) -> dict:
 
 async def my_profile(user_id: str) -> Optional[dict]:
     return await db.mingle_profiles.find_one({"user_id": user_id, "deleted_at": None}, NO_ID)
-
-
-async def blocked_ids(user_id: str) -> set:
-    ids = set()
-    async for b in db.mingle_blocks.find({"$or": [{"blocker_id": user_id}, {"blocked_id": user_id}]}, NO_ID):
-        ids.add(b["blocked_id"] if b["blocker_id"] == user_id else b["blocker_id"])
-    return ids
 
 
 async def get_or_create_conversation(a: str, b: str) -> str:
@@ -282,3 +277,90 @@ async def report(body: TargetBody, user=Depends(get_current_user)):
 async def badge_for(user_id: str) -> bool:
     p = await db.mingle_profiles.find_one({"user_id": user_id, "deleted_at": None, "active": True, "show_badge": True}, NO_ID)
     return bool(p)
+
+
+# ---------------------------------------------------------------------------
+# Blocked members
+# ---------------------------------------------------------------------------
+@router.get("/blocks")
+async def list_blocks(user=Depends(get_current_user)):
+    me = user["user_id"]
+    blocks = [b async for b in db.mingle_blocks.find({"blocker_id": me}, NO_ID).sort("created_at", -1)]
+    ids = [b["blocked_id"] for b in blocks]
+    profiles = {p["user_id"]: p async for p in db.mingle_profiles.find({"user_id": {"$in": ids}}, NO_ID)}
+    users = await users_map([i for i in ids if i not in profiles])
+    out = []
+    for b in blocks:
+        p = profiles.get(b["blocked_id"])
+        u = users.get(b["blocked_id"])
+        out.append({"user_id": b["blocked_id"], "blocked_at": b["created_at"],
+                    "display_name": (p or u or {}).get("display_name") or "Former member",
+                    "photo_url": (p or {}).get("photo_url") or ((p or {}).get("photos") or [None])[0]})
+    return out
+
+
+@router.delete("/blocks/{user_id}")
+async def unblock(user_id: str, user=Depends(get_current_user)):
+    """Lift the block only. Past connection, Interested status and conversation are intentionally not restored."""
+    res = await db.mingle_blocks.delete_one({"blocker_id": user["user_id"], "blocked_id": user_id})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Member is not blocked")
+    return {"unblocked": True}
+
+
+# ---------------------------------------------------------------------------
+# Member profile view (Mingle identity only) + Mingle Feed
+# ---------------------------------------------------------------------------
+async def require_member(user: dict) -> dict:
+    p = await my_profile(user["user_id"])
+    if not p:
+        raise HTTPException(status_code=403, detail="Join Single & Mingle first")
+    return p
+
+
+@router.get("/members/{user_id}")
+async def member(user_id: str, user=Depends(require_premium)):
+    me = user["user_id"]
+    await require_member(user)
+    target = await db.mingle_profiles.find_one({"user_id": user_id, "deleted_at": None}, NO_ID)
+    if not target or user_id in await blocked_ids(me):
+        raise HTTPException(status_code=404, detail="Member not available")
+    mine = await db.mingle_actions.find_one({"from_id": me, "to_id": user_id}, NO_ID)
+    theirs = await db.mingle_actions.find_one({"from_id": user_id, "to_id": me}, NO_ID)
+    conn = await db.mingle_connections.find_one({"participants": {"$all": [me, user_id]}, "deleted_at": None}, NO_ID)
+    conv = await db.conversations.find_one({"participants": {"$all": [me, user_id], "$size": 2}}, NO_ID)
+    return {"profile": public_profile(target), "is_me": user_id == me,
+            "my_action": (mine or {}).get("action"), "their_action": (theirs or {}).get("action"),
+            "connection_id": (conn or {}).get("connection_id"),
+            "conversation_id": conv["conversation_id"] if conv and (conn or (mine or {}).get("action") == "hi" or (theirs or {}).get("action") == "hi") else None}
+
+
+class MinglePostBody(BaseModel):
+    text: str = Field(default="", max_length=2000)
+    media: List[MediaItem] = []
+
+
+@router.get("/posts")
+async def mingle_feed(before: Optional[datetime] = None, limit: int = Query(default=20, le=50), user=Depends(require_premium)):
+    me = user["user_id"]
+    await require_member(user)
+    query = {"space": "mingle", "deleted_at": None, "author_id": {"$nin": list(await blocked_ids(me))}}
+    if before:
+        query["created_at"] = {"$lt": before}
+    posts = [p async for p in db.posts.find(query, NO_ID).sort("created_at", -1).limit(limit)]
+    return {"items": await enrich_posts(posts, me), "next_cursor": posts[-1]["created_at"].isoformat() if len(posts) == limit else None}
+
+
+@router.post("/posts", status_code=201)
+async def create_mingle_post(body: MinglePostBody, user=Depends(require_premium)):
+    """Posts live in the `mingle` space: same posts/likes/comments machinery, never shown on the main feed or profile."""
+    await require_member(user)
+    text = body.text.strip()
+    if not text and not body.media:
+        raise HTTPException(status_code=400, detail="Add some text, a photo or a video")
+    doc = {"post_id": new_id("post"), "author_id": user["user_id"], "text": text, "media": [m.model_dump() for m in body.media],
+           "mentions": [], "likes_count": 0, "comments_count": 0, "shares_count": 0, "space": "mingle",
+           "created_at": now_utc(), "deleted_at": None}
+    await db.posts.insert_one(doc)
+    doc.pop("_id", None)
+    return (await enrich_posts([doc], user["user_id"]))[0]

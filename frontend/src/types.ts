@@ -4,6 +4,10 @@ export type AuthorSummary = {
   username: string;
   avatar_url: string | null;
   trading_style?: string | null;
+  // Present when the summary is a Single & Mingle identity (never the main profile)
+  mingle?: boolean;
+  age?: number | null;
+  location?: string | null;
 };
 
 export type User = {
@@ -45,6 +49,7 @@ export type Notification = {
   comment_id: string | null;
   text: string;
   read: boolean;
+  mingle?: boolean;
   created_at: string;
 };
 
@@ -90,6 +95,7 @@ export type Post = {
   mentions: string[];
   mentioned_users?: AuthorSummary[];
   edited_at?: string | null;
+  space?: "main" | "mingle";
   likes_count: number;
   comments_count: number;
   shares_count: number;
