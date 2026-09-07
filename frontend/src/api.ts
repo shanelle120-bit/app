@@ -1,3 +1,4 @@
+import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 import { storage } from "@/src/utils/storage";
@@ -103,12 +104,35 @@ export function timeAgo(value: string | null | undefined): string {
 export type UploadResult = { url: string; type: "image" | "video"; path: string; content_type: string };
 
 export async function uploadFile(uri: string, name: string, type: string): Promise<UploadResult> {
-  const form = new FormData();
   if (Platform.OS === "web") {
+    const form = new FormData();
     const blob = await (await fetch(uri)).blob();
     form.append("file", blob, name);
-  } else {
-    form.append("file", { uri, name, type } as any);
+    return api<UploadResult>("/upload", { method: "POST", formData: form });
   }
-  return api<UploadResult>("/upload", { method: "POST", formData: form });
+  // Native: Expo's fetch polyfill rejects `{ uri, name, type }` form parts
+  // ("Unsupported FormDataPart implementation"), so stream the file with the
+  // native multipart uploader instead.
+  const headers: Record<string, string> = {};
+  if (memoryToken) headers.Authorization = `Bearer ${memoryToken}`;
+  const res = await FileSystem.uploadAsync(`${API_URL}/upload`, uri, {
+    httpMethod: "POST",
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    fieldName: "file",
+    mimeType: type,
+    parameters: { filename: name },
+    headers,
+  });
+  let data: any = null;
+  try {
+    data = res.body ? JSON.parse(res.body) : null;
+  } catch {
+    data = { detail: res.body };
+  }
+  if (res.status < 200 || res.status >= 300) {
+    if (res.status === 401 && onUnauthorized) onUnauthorized();
+    const detail = data?.detail;
+    throw new ApiError(res.status, typeof detail === "string" ? detail : `Upload failed (${res.status})`);
+  }
+  return data as UploadResult;
 }

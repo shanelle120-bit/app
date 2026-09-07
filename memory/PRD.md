@@ -35,6 +35,7 @@ Build a polished mobile-first social networking app for financial traders (futur
 - Search: traders by name/handle, suggested traders, follow/message from row.
 - Seeded demo data (4 traders, posts, a comment, a DM). Test credentials in `/app/memory/test_credentials.md`.
 - Testing: iteration_1 — backend 21/21, all frontend flows pass.
+- 2026-06 fix: native photo/video upload failed in Expo Go ("Unsupported FormDataPart implementation" — Expo SDK 57 fetch polyfill rejects `{uri}` FormData parts). `uploadFile` now uses `expo-file-system/legacy` `uploadAsync` (multipart) on iOS/Android; web unchanged. iteration_2 — 33/33 backend + frontend regression pass.
 
 ## Backlog (prioritized)
 - P0: Email delivery for password reset codes (Emergent Resend) — currently code shown in-app.

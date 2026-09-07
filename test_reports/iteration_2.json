@@ -1,0 +1,30 @@
+{
+  "summary": "Targeted verification of the FormData upload fix (expo-file-system uploadAsync compatibility) + full regression. Added /app/backend/tests/test_upload_fix.py with 12 tests covering: (1) POST /api/upload receiving multipart in the exact shape expo-file-system.uploadAsync sends — field 'file' with filename basename ('IMG_0001.jpg'/'video.mp4'/'IMG_0002.mov'), correct Content-Type (image/jpeg, video/mp4, video/quicktime), plus an extra text form field 'filename' from `parameters` which the backend now correctly IGNORES (no 422); (2) ~1.2MB JPEG and ~300KB MP4 binary payloads accepted and returned bytes match on GET /api/files/<path> with correct content-type and NO auth; (3) cross-user visibility — demo uploads media, posts with it, second signed-up user GETs /api/posts/{id} and sees the media url, files served without auth; (4) PUT /api/me with avatar_url + cover_url is reflected in GET /api/users/{id} AND in GET /api/auth/me after re-login; (5) regression smoke: feed, like toggle, comment with gif_url, GET /api/gifs/trending, GET /api/conversations, GET /api/stories — all 200. Full pytest run: 33/33 passed (21 pre-existing + 12 new). Frontend regression on 390x844 web preview: Welcome → Log in demo → Home with For you/Following + stories row (Sophia, Marcus, Ava, Devon) + feed; Create tab opens composer showing Photo/Video/GIF chips; Chat shows Marcus Reyes conversation; Profile shows Demo Trader with bio/stats/tabs and Edit profile button. NO console errors, NO expo-file-system import errors on web, NO red screen. Web upload path (Blob FormData) unchanged and unaffected. Native uploader path can only be validated on device (Expo Go / native build) per Expo web preview limitations — backend contract confirmed to accept the exact multipart shape uploadAsync produces.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_upload_fix.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/upload_fix_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_media.py upload() correctly reads only `file: UploadFile = File(...)` — the extra 'filename' text field from expo-file-system's `parameters` is silently ignored by FastAPI (no 422), which matches Expo SDK 57's multipart shape.",
+    "src/api.ts uploadFile() cleanly branches on Platform.OS: web keeps Blob FormData path (verified working); native uses FileSystem.uploadAsync with MULTIPART, fieldName='file', mimeType and Authorization header — matches what backend expects. Not modified per request.",
+    "Import is `from 'expo-file-system/legacy'` — this is required for uploadAsync in SDK 57 where the new expo-file-system API removed uploadAsync from the default export. Correct usage; no web-only import errors observed in browser console.",
+    "GET /api/files/{path} is unauthenticated by design (needed for <img src=...> from other clients). Confirmed with cross-user + no-auth fetch."
+  ],
+  "updated_files": ["/app/backend/tests/test_upload_fix.py"],
+  "success_rate": {"backend": "100% (33/33)", "frontend": "100% of requested regression flows"},
+  "seed_data_creation": "Tests create TEST_-prefixed users/posts and clean up posts via soft-delete after each test class. Uploaded media rows remain but are namespaced under the user_id and use random uuid filenames — safe.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_upload_fix.py builds valid-ish JPEG/MP4/PNG binary payloads in memory (make_jpeg_bytes/make_mp4_bytes/make_png_bytes) with correct MIME magic + padding so the backend size/content-type paths get real coverage without external fixture files. When testing multipart edge cases against FastAPI's UploadFile, remember: extra text form fields NOT declared as parameters are silently ignored (no 422) — this is the load-bearing behavior for the expo-file-system uploadAsync `parameters` compatibility. The native uploader (FileSystem.uploadAsync) path in src/api.ts CANNOT be driven from Playwright web — verification must be done on an actual iOS/Android device via Expo Go or a native build.",
+  "rca_of_issue": "Original bug: Expo SDK 57's fetch polyfill rejected React Native's {uri,name,type} FormData part shape with 'Unsupported FormDataPart implementation', so photo/video attach failed on device. Fix in src/api.ts uploadFile() switches the native path to FileSystem.uploadAsync (streaming multipart uploader) with fieldName='file', mimeType from the picker, and Authorization header forwarded. The extra `parameters: { filename: name }` is sent as an additional text form field, which FastAPI's UploadFile endpoint safely ignores. Web path unchanged (Blob FormData continues to work in browsers). Backend was already compatible — no server changes needed. Verified end-to-end via 12 new tests + 21 existing tests, all green."
+}
