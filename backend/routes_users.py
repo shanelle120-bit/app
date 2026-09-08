@@ -25,6 +25,8 @@ class ProfileUpdate(BaseModel):
     trading_style: Optional[str] = None
     trading_session: Optional[str] = None
     onboarding_complete: Optional[bool] = None
+    has_seen_trading_disclaimer: Optional[bool] = None
+    has_seen_mingle_safety: Optional[bool] = None
 
 
 async def with_follow_state(users: List[dict], viewer_id: str) -> List[dict]:

@@ -156,6 +156,9 @@ export default function Premium() {
               />
               <Button title="Notify me when billing launches" variant="secondary" icon="notifications-outline" onPress={() => toast.show("You're on the list. We'll let you know.", "success")} testID="premium-notify-button" />
               <Text style={styles.footnote}>No payment is taken during the preview. Pricing and billing will be announced at launch.</Text>
+              <Pressable onPress={() => router.push("/legal/premium-policy")} hitSlop={8} style={{ alignSelf: "center", minHeight: 32, justifyContent: "center" }} testID="premium-policy-link">
+                <Text style={styles.policyLink}>Subscription, Cancellation & Refund Policy</Text>
+              </Pressable>
             </>
           )}
         </View>
@@ -190,4 +193,5 @@ const useStyles = makeStyles((colors) => ({
   statusTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "500" },
   statusBody: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
   footnote: { color: colors.muted, fontSize: 12, textAlign: "center" },
+  policyLink: { color: colors.brandSecondary, fontSize: 12, textAlign: "center", textDecorationLine: "underline" },
 }));

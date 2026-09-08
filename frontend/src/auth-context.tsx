@@ -14,7 +14,7 @@ type AuthState = {
   loading: boolean;
   googleBusy: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, displayName: string) => Promise<void>;
+  signup: (email: string, password: string, displayName: string, ageConfirmed: boolean, agreedToTerms: boolean) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -123,10 +123,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, displayName: string) => {
+  const signup = useCallback(async (email: string, password: string, displayName: string, ageConfirmed: boolean, agreedToTerms: boolean) => {
     const data = await api<{ access_token: string; user: User }>("/auth/signup", {
       method: "POST",
-      body: { email, password, display_name: displayName },
+      body: { email, password, display_name: displayName, age_confirmed: ageConfirmed, agreed_to_terms: agreedToTerms },
       skipAuthHandler: true,
     });
     await persistToken(data.access_token);

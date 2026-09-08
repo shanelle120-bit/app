@@ -185,6 +185,34 @@ export function Chip({
 }
 
 // ---------------------------------------------------------------------------
+// Checkbox
+// ---------------------------------------------------------------------------
+export function Checkbox({
+  checked,
+  onPress,
+  testID,
+}: {
+  checked: boolean;
+  onPress: () => void;
+  testID?: string;
+}) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      testID={testID}
+      style={({ pressed }) => [styles.checkboxHit, pressed && { opacity: 0.8 }]}
+    >
+      <View style={[styles.checkbox, checked && { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary }]}>
+        {checked ? <Ionicons name="checkmark" size={15} color={colors.onBrandPrimary} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Misc
 // ---------------------------------------------------------------------------
 export function IconButton({
@@ -305,6 +333,18 @@ const useStyles = makeStyles((colors) => ({
     flexShrink: 0,
   },
   chipText: { color: colors.muted, fontSize: 14 },
+
+  checkboxHit: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSecondary,
+  },
 
   empty: { alignItems: "center", paddingHorizontal: 32, paddingVertical: 48 },
   emptyIcon: {

@@ -35,6 +35,8 @@ export type User = {
   email?: string;
   auth_providers?: string[];
   created_at?: string;
+  has_seen_trading_disclaimer?: boolean;
+  has_seen_mingle_safety?: boolean;
 };
 
 export type NotificationType = "like" | "comment" | "mention" | "follow" | "mingle_hi" | "mingle_interested" | "mingle_match";

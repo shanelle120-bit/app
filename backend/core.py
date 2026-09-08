@@ -121,6 +121,7 @@ PUBLIC_USER_FIELDS = [
     "markets", "instruments", "trading_style", "trading_session",
     "followers_count", "following_count", "posts_count", "created_at",
     "onboarding_complete", "is_verified",
+    "has_seen_trading_disclaimer", "has_seen_mingle_safety",
 ]
 
 
@@ -131,6 +132,8 @@ def public_user(doc: dict, include_private: bool = False) -> dict:
     out["followers_count"] = out.get("followers_count") or 0
     out["following_count"] = out.get("following_count") or 0
     out["posts_count"] = out.get("posts_count") or 0
+    out["has_seen_trading_disclaimer"] = bool(out.get("has_seen_trading_disclaimer"))
+    out["has_seen_mingle_safety"] = bool(out.get("has_seen_mingle_safety"))
     if include_private:
         out["email"] = doc.get("email")
         out["auth_providers"] = doc.get("auth_providers", [])

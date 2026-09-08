@@ -20,6 +20,8 @@ class SignupBody(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     display_name: str = Field(min_length=1, max_length=60)
+    age_confirmed: bool = False
+    agreed_to_terms: bool = False
 
 
 class LoginBody(BaseModel):
@@ -80,11 +82,21 @@ def base_user(email: str, display_name: str, providers: list, avatar_url: Option
         "created_at": now,
         "password_changed_at": None,
         "deleted_at": None,
+        "age_confirmed": False,
+        "agreed_to_terms": False,
+        "consent_at": None,
+        "has_seen_trading_disclaimer": False,
+        "has_seen_mingle_safety": False,
     }
 
 
 @router.post("/signup", status_code=201)
 async def signup(body: SignupBody):
+    if not body.age_confirmed or not body.agreed_to_terms:
+        raise HTTPException(
+            status_code=422,
+            detail="You must confirm you are 18+ and agree to the Terms of Service and Privacy Policy",
+        )
     email = normalized_email(str(body.email))
     if await db.users.find_one({"email_normalized": email}, NO_ID):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
@@ -92,6 +104,9 @@ async def signup(body: SignupBody):
     doc["password_hash"] = password_hash.hash(body.password)
     doc["password_changed_at"] = now_utc()
     doc["username"] = await unique_username(body.display_name)
+    doc["age_confirmed"] = True
+    doc["agreed_to_terms"] = True
+    doc["consent_at"] = now_utc()
     await db.users.insert_one(doc)
     doc.pop("_id", None)
     return {
@@ -199,6 +214,17 @@ async def exchange_session(body: SessionBody):
 @router.get("/me")
 async def me(user=Depends(get_current_user)):
     return public_user(user, include_private=True)
+
+
+@router.delete("/me", status_code=200)
+async def delete_account(user=Depends(get_current_user)):
+    """Soft-delete the account: marks deleted_at (matching the app's existing soft-delete
+    convention already used everywhere users are looked up), and drops any active Google
+    session tokens. JWTs stop working immediately because `resolve_token` re-fetches the
+    user filtered by deleted_at=None on every request."""
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"deleted_at": now_utc()}})
+    await db.user_sessions.delete_many({"user_id": user["user_id"]})
+    return {"message": "Your account has been deleted."}
 
 
 @router.post("/logout")

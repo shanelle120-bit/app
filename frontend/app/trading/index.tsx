@@ -6,9 +6,11 @@ import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { FirstEntryModal } from "@/src/components/first-entry-modal";
 import { PostCard } from "@/src/components/post-card";
 import { PremiumPaywall } from "@/src/components/premium-gate";
 import { Button, EmptyState, Loader } from "@/src/components/ui";
+import { useFirstEntryFlag } from "@/src/hooks/use-first-entry-flag";
 import { useMembership } from "@/src/hooks/use-membership";
 import { postKeys } from "@/src/hooks/use-post-actions";
 import { useVisiblePostsTracker, VisiblePostsProvider } from "@/src/hooks/use-visible-posts";
@@ -24,6 +26,7 @@ export default function TradingOnly() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isPremium, isLoading: membershipLoading } = useMembership();
+  const disclaimer = useFirstEntryFlag("has_seen_trading_disclaimer");
   const back = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/premium"));
   const query = useInfiniteQuery({
     queryKey: postKeys.feed("trading"),
@@ -92,6 +95,19 @@ export default function TradingOnly() {
           testID="trading-feed-list"
         />
       </VisiblePostsProvider>
+
+      <FirstEntryModal
+        visible={disclaimer.visible}
+        icon="alert-circle-outline"
+        title="Before you enter Trading Only"
+        body="Trading involves substantial risk of loss and is not suitable for everyone. Content shared here is for discussion only — it is not financial advice. Trade at your own risk."
+        confirmLabel="I Understand"
+        legalSlug="trading-disclaimer"
+        legalLabel="Trading & Financial Disclaimer"
+        onConfirm={disclaimer.acknowledge}
+        confirming={disclaimer.acknowledging}
+        testID="trading-disclaimer-modal"
+      />
     </View>
   );
 }

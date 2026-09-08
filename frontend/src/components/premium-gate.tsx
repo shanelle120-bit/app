@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
@@ -52,6 +53,7 @@ export function PremiumPaywall({ featureKey, title, lead, icon = "diamond", onBa
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const router = useRouter();
   const { membership, activate } = useMembership();
   const [plan, setPlan] = useState<PremiumPlan["id"]>("yearly");
   const feature = membership?.features.find((f) => f.key === featureKey);
@@ -91,6 +93,9 @@ export function PremiumPaywall({ featureKey, title, lead, icon = "diamond", onBa
           />
           <Button title="Not now" variant="ghost" onPress={onBack} testID="paywall-not-now-button" />
           <Text style={styles.footnote}>No payment is taken during the preview. Pricing and billing will be announced at launch — you can cancel any time from the Premium tab.</Text>
+          <Pressable onPress={() => router.push("/legal/premium-policy")} hitSlop={8} style={{ alignSelf: "center", minHeight: 32, justifyContent: "center" }} testID="paywall-policy-link">
+            <Text style={styles.policyLink}>Subscription, Cancellation & Refund Policy</Text>
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </View>
@@ -108,6 +113,7 @@ const useStyles = makeStyles((colors) => ({
   lead: { color: colors.silver, fontSize: 16, lineHeight: 24, marginTop: 10 },
   sectionLabel: { color: colors.muted, fontSize: 12, letterSpacing: 0.6 },
   footnote: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center" },
+  policyLink: { color: colors.brandSecondary, fontSize: 12, textAlign: "center", textDecorationLine: "underline" },
 
   plan: { backgroundColor: colors.surfaceSecondary, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 16 },
   planSelected: { borderColor: colors.brandPrimary, backgroundColor: colors.brandSoft },

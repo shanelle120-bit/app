@@ -8,10 +8,12 @@ import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { FirstEntryModal } from "@/src/components/first-entry-modal";
 import { MingleNav } from "@/src/components/mingle-nav";
 import { MinglePhotos } from "@/src/components/mingle-photos";
 import { PremiumPaywall } from "@/src/components/premium-gate";
 import { Button, Chip, EmptyState, IconButton, Loader } from "@/src/components/ui";
+import { useFirstEntryFlag } from "@/src/hooks/use-first-entry-flag";
 import { useMembership } from "@/src/hooks/use-membership";
 import { DEFAULT_FILTERS, type MingleActionResult, type MingleFilters, type MingleMeta, type MingleProfile } from "@/src/mingle-types";
 import { makeStyles, useTheme } from "@/src/theme";
@@ -25,6 +27,7 @@ export default function Mingle() {
   const { isPremium, isLoading: membershipLoading } = useMembership();
   const me = useQuery({ queryKey: ["mingle", "me"], queryFn: () => api<{ profile: MingleProfile | null }>("/mingle/me") });
   const meta = useQuery({ queryKey: ["mingle", "meta"], queryFn: () => api<MingleMeta>("/mingle/meta"), staleTime: Infinity });
+  const safety = useFirstEntryFlag("has_seen_mingle_safety");
   const back = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/premium"));
 
   if (!isPremium) {
@@ -41,6 +44,21 @@ export default function Mingle() {
   }
 
   if (me.isLoading) return <View style={[styles.root, { paddingTop: insets.top + 60 }]}><Loader /></View>;
+
+  const safetyModal = (
+    <FirstEntryModal
+      visible={safety.visible}
+      icon="shield-checkmark-outline"
+      title="Stay safe while you mingle"
+      body="Keep conversations on-platform, never send money or trading capital to a match, and report anyone who makes you uncomfortable. Meet in public for the first time."
+      confirmLabel="Got It"
+      legalSlug="mingle-safety"
+      legalLabel="Single & Mingle Safety Guidelines"
+      onConfirm={safety.acknowledge}
+      confirming={safety.acknowledging}
+      testID="mingle-safety-modal"
+    />
+  );
 
   if (!me.data?.profile) {
     return (
@@ -67,11 +85,17 @@ export default function Mingle() {
             <Text style={styles.notice}>For single adults 18+. {meta.data?.safety_notice}</Text>
           </Animated.View>
         </ScrollView>
+        {safetyModal}
       </View>
     );
   }
 
-  return <Discover profile={me.data.profile} meta={meta.data} />;
+  return (
+    <>
+      <Discover profile={me.data.profile} meta={meta.data} />
+      {safetyModal}
+    </>
+  );
 }
 
 function Discover({ profile, meta }: { profile: MingleProfile; meta?: MingleMeta }) {
