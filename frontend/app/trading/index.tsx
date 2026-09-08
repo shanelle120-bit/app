@@ -53,7 +53,7 @@ export default function TradingOnly() {
               <Ionicons name="bar-chart" size={16} color={colors.onBrandPrimary} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.brand} numberOfLines={1} adjustsFontSizeToFit>TRADING ONLY</Text>
+              <Text style={styles.brand}>TRADING{"\n"}ONLY</Text>
             </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -102,7 +102,7 @@ const useStyles = makeStyles((colors) => ({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 48 },
   backBtn: { width: 32, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -8 },
   logoMark: { width: 30, height: 30, borderRadius: 9, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
-  brand: { color: colors.onSurface, fontSize: 15, fontWeight: "500", letterSpacing: 1.2 },
+  brand: { color: colors.onSurface, fontSize: 15, lineHeight: 19, fontWeight: "500", letterSpacing: 1.2 },
   roundBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   description: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 8 },
 }));
