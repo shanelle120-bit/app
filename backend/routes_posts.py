@@ -45,8 +45,8 @@ class PostUpdate(BaseModel):
     space: Literal["main", "trading"] = "main"
 
 
-REACTIONS = ["😂", "🩷", "🤑", "🥳", "🔥", "🗣️", "🤗", "🤬"]
-DEFAULT_REACTION = "🩷"
+REACTIONS = ["😂", "💜", "🤑", "🥳", "🔥", "‼️", "🤗", "🤬"]
+DEFAULT_REACTION = "💜"
 
 
 class ReactBody(BaseModel):
@@ -266,7 +266,7 @@ async def react(post_id: str, body: ReactBody, user=Depends(get_current_user)):
 
 @router.post("/posts/{post_id}/like")
 async def toggle_like(post_id: str, user=Depends(get_current_user)):
-    """Legacy heart toggle, kept so older clients keep working; it is just the 🩷 reaction."""
+    """Legacy heart toggle, kept so older clients keep working; it is just the 💜 reaction."""
     existing = await db.likes.find_one({"post_id": post_id, "user_id": user["user_id"]}, NO_ID)
     return await set_reaction(post_id, user, None if existing else DEFAULT_REACTION)
 

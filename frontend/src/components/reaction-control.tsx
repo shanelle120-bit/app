@@ -19,7 +19,7 @@ export function ReactionControl({ post, onReact }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
-  const mine = post.my_reaction ?? (post.liked ? "🩷" : null);
+  const mine = post.my_reaction ?? (post.liked ? "💜" : null);
   const top = Object.entries(post.reactions ?? {})
     .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1])

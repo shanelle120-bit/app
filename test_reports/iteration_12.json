@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 12 – Trading Only header copy + reactions emoji set. BACKEND (8/8 pytest passing at /app/backend/tests/test_iteration12_reactions.py against live preview API): logged in as demo@leveluphub.com / Trader123! and used the top post from GET /api/posts. POST /api/posts/{id}/react {reaction:'💜'} → 200 with my_reaction='💜' and liked=true; {reaction:'‼️'} → 200 with my_reaction='‼️'; {reaction:'🩷'} → 400 'Unknown reaction'; {reaction:'🗣️'} → 400 'Unknown reaction'; {reaction:null} → 200 my_reaction=null. POST /api/posts/{id}/like from a clean state → 200 my_reaction='💜'; second call → 200 my_reaction=null. Enumerated the reactions summary keys from GET /api/posts?limit=30 (main) and GET /api/posts?space=trading&limit=30 (trading) – no post's reactions dict contains 🩷 or 🗣️, confirming the legacy-emoji migration held. FRONTEND (Expo web 390x844, demo login): /trading mounts trading-only-screen; the header shows 'TRADING ONLY' on a single line beside the bar-chart mark, the tagline 'The conversation behind the charts.' is NOT present in the DOM anywhere (removed as required); the descriptive paragraph 'A members-only space for real conversations about strategies, prop firms, platforms, tools, trading psychology, resources, lessons learned and everything trading.' is still rendered under the header; trading-back-button, trading-compose-button, trading-search-button are all visible; tapping trading-back-button routes to /premium. Reaction control tested on THREE surfaces (main feed, Trading Only feed, post detail): tapping post-react-<id> opens reaction-picker with exactly the eight testIDs reaction-option-😂 / reaction-option-💜 / reaction-option-🤑 / reaction-option-🥳 / reaction-option-🔥 / reaction-option-‼️ / reaction-option-🤗 / reaction-option-🤬 in every case, and neither reaction-option-🩷 nor reaction-option-🗣️ exists. Picking 💜 updates post-my-reaction-<id> to '💜'; re-opening and picking ‼️ updates it to '‼️'; re-opening and pressing reaction-remove clears the reaction (post-my-reaction-<id> no longer rendered). All UI-side reactions added during the run were removed via reaction-remove; no seed posts modified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration12_reactions.py",
+    "/app/test_reports/pytest/iteration12_results.xml"
+  ],
+  "action_items": [
+    "None – both user-reported fixes verified. Trading Only header no longer shows the tagline; reactions set is exactly 😂 💜 🤑 🥳 🔥 ‼️ 🤗 🤬 on backend and all three frontend surfaces (main feed, Trading Only, post detail); legacy 🩷 and 🗣️ are rejected with 400 and no live post carries them in its reaction summary."
+  ],
+  "critical_code_review_comments": [
+    "routes_posts.py:48 REACTIONS = ['😂','💜','🤑','🥳','🔥','‼️','🤗','🤬'] and DEFAULT_REACTION='💜'. /react handler validates body.reaction ∈ REACTIONS else 400 (line 262-263). /like handler defers to set_reaction with DEFAULT_REACTION so legacy clients get 💜 on toggle-on and null on toggle-off (line 267-271).",
+    "frontend/src/hooks/use-post-actions.ts:37 REACTIONS constant matches the backend list one-to-one; applyReaction() also uses '💜' as the legacy-heart fallback (lines 42-44). React-Query optimistic patch aligns with server response.",
+    "frontend/src/components/reaction-control.tsx: single Modal picker rendered from REACTIONS (line 54); testIDs are dynamically `reaction-option-${e}` so the picker automatically follows the constants. mine fallback uses '💜' (line 22). reaction-remove testID present at line 61.",
+    "frontend/app/trading/index.tsx: line 56 renders <Text>TRADING ONLY</Text> with numberOfLines={1} adjustsFontSizeToFit; the description Text at line 68 remains; no tagline Text between the header and description. Back button falls back to router.replace('/(tabs)/premium') (line 27) – confirmed live.",
+    "reaction_summary aggregation coalesces legacy documents with $ifNull → DEFAULT_REACTION '💜', so any legacy 🩷/🗣️ documents (if they existed) would surface as 💜 in the summary. Live checks across main and trading feeds confirmed no residual 🩷 or 🗣️ keys."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration12_reactions.py (new – 8 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% on iteration-12 flows – header copy verified, picker sets verified on main / trading / detail, 💜 and ‼️ selection + removal verified"},
+  "seed_data_creation": "None. Reactions were added to an existing seed post (top of demo's main feed) and to an existing Trading Only post, then removed via reaction-remove and /react {reaction:null}. Post detail picker was closed via backdrop tap without adding a reaction.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 12 scope was the two user-reported bugs from iteration 11: (1) drop the tagline 'The conversation behind the charts.' from the /trading header while keeping the description paragraph and the single-line 'TRADING ONLY' brand text; (2) swap 🩷→💜 and 🗣️→‼️ in the reactions set. Both are correct on live preview. Backend contract for reactions: REACTIONS=['😂','💜','🤑','🥳','🔥','‼️','🤗','🤬']; POST /api/posts/{id}/react validates against that list (400 otherwise); POST /api/posts/{id}/like toggles the 💜 reaction. Frontend REACTIONS constant lives at /app/frontend/src/hooks/use-post-actions.ts:37 and reaction-control.tsx renders one Modal option per emoji (testID `reaction-option-<emoji>`). Login via 'Log in' link on landing → login-email-input / login-password-input / login-submit-button; demo@leveluphub.com / Trader123! remains valid.",
+  "rca_of_issue": "N/A – both reported bugs are fixed."
+}

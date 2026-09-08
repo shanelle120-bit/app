@@ -34,12 +34,12 @@ function haptic(kind: "light" | "medium" | "success") {
   else Haptics.impactAsync(kind === "light" ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium);
 }
 
-export const REACTIONS = ["😂", "🩷", "🤑", "🥳", "🔥", "🗣️", "🤗", "🤬"] as const;
+export const REACTIONS = ["😂", "💜", "🤑", "🥳", "🔥", "‼️", "🤗", "🤬"] as const;
 
 /** Local recompute of the reaction summary when a member picks/changes/removes their reaction. */
 export function applyReaction(post: Post, reaction: string | null): Partial<Post> {
   const reactions = { ...(post.reactions ?? {}) };
-  const prev = post.my_reaction ?? (post.liked ? "🩷" : null);
+  const prev = post.my_reaction ?? (post.liked ? "💜" : null);
   if (prev) {
     reactions[prev] = Math.max(0, (reactions[prev] ?? 1) - 1);
     if (!reactions[prev]) delete reactions[prev];
