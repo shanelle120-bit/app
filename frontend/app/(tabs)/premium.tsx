@@ -79,7 +79,7 @@ export default function Premium() {
             const unlocked = available && (f ? f.unlocked : isPremium);
             return (
               <Animated.View key={s.key} entering={FadeInDown.delay(i * 90).duration(400)} style={[styles.card, { borderColor: toneColor[s.tone] }]} testID={`premium-card-${s.key}`}>
-                <Pressable onPress={available ? () => router.push(s.key === "accountability" ? "/accountability" : "/mingle") : undefined} disabled={!available} testID={`premium-card-${s.key}-press`}>
+                <Pressable onPress={available ? () => router.push(s.key === "accountability" ? "/accountability" : s.key === "trading_only" ? "/trading" : "/mingle") : undefined} disabled={!available} testID={`premium-card-${s.key}-press`}>
                   <View style={styles.cardTop}>
                     <View style={[styles.cardIcon, { backgroundColor: colors.surfaceTertiary }]}>
                       <Ionicons name={s.icon as any} size={26} color={toneColor[s.tone]} />

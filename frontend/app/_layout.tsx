@@ -51,6 +51,7 @@ function RootNavigator() {
         <Stack.Screen name="notifications" />
         <Stack.Screen name="mingle" />
         <Stack.Screen name="accountability" />
+        <Stack.Screen name="trading" />
       </Stack.Protected>
     </Stack>
   );

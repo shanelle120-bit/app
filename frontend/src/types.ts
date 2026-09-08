@@ -96,7 +96,7 @@ export type Post = {
   mentions: string[];
   mentioned_users?: AuthorSummary[];
   edited_at?: string | null;
-  space?: "main" | "mingle";
+  space?: "main" | "trading" | "mingle";
   likes_count: number;
   comments_count: number;
   shares_count: number;

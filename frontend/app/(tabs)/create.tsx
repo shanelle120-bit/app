@@ -1,7 +1,7 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
@@ -24,6 +24,14 @@ export default function CreatePost() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  // Trading Only reuses this composer; posts stay in that space.
+  const { space } = useLocalSearchParams<{ space?: string }>();
+  const isTrading = space === "trading";
+  const done = () => {
+    const target = isTrading ? "/trading" : "/(tabs)";
+    if (isTrading) router.setParams({ space: "" }); // the tab keeps its params, so clear the Trading Only scope
+    router.replace(target);
+  };
   const toast = useToast();
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -73,6 +81,7 @@ export default function CreatePost() {
           text: text.trim(),
           media: attachments.map(({ type, url, width, height }) => ({ type, url, width, height })),
           mentions: mentions.selectedIds(text),
+          space: isTrading ? "trading" : "main",
         },
       }),
     onSuccess: () => {
@@ -83,8 +92,8 @@ export default function CreatePost() {
       setText("");
       setAttachments([]);
       mentions.reset();
-      toast.show("Posted to the hub", "success");
-      router.replace("/(tabs)");
+      toast.show(isTrading ? "Posted to Trading Only" : "Posted to the hub", "success");
+      done();
     },
     onError: (e: Error) => toast.show(e.message, "error"),
   });
@@ -93,7 +102,7 @@ export default function CreatePost() {
     setText("");
     setAttachments([]);
     mentions.reset();
-    router.replace("/(tabs)");
+    done();
   };
 
   return (
@@ -102,7 +111,7 @@ export default function CreatePost() {
         <Pressable onPress={reset} style={styles.cancel} testID="create-cancel-button">
           <Text style={styles.cancelText}>Cancel</Text>
         </Pressable>
-        <Text style={styles.title}>New post</Text>
+        <Text style={styles.title}>{isTrading ? "New Trading Only post" : "New post"}</Text>
         <Button title="Post" small onPress={() => publish.mutate()} disabled={!canPost} loading={publish.isPending} testID="create-submit-button" />
       </View>
 

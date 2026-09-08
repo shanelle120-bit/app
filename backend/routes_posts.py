@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map, mingle_blocked_ids, mingle_summaries
-from routes_activity import notify
+from routes_activity import has_access, notify
 
 router = APIRouter(tags=["posts"])
 
 MENTION_RX = re.compile(r"@([a-zA-Z0-9_]{3,24})")
-# Posts carry a `space`; Mingle posts never surface in main-feed queries.
-MAIN_SPACE = {"space": {"$ne": "mingle"}}
+# Posts carry a `space` (main | trading | mingle). Trading Only and Mingle posts never surface in main-feed queries.
+MAIN_SPACE = {"space": {"$nin": ["mingle", "trading"]}}
 
 
 class MediaItem(BaseModel):
@@ -28,6 +28,7 @@ class PostCreate(BaseModel):
     # user_ids explicitly selected from the @mention picker. When provided (even
     # empty), only these are stored; free-typed @handles are treated as plain text.
     mentions: Optional[List[str]] = None
+    space: Literal["main", "trading"] = "main"
 
 
 class CommentCreate(BaseModel):
@@ -35,11 +36,13 @@ class CommentCreate(BaseModel):
     gif_url: Optional[str] = None
     parent_id: Optional[str] = None
     mentions: Optional[List[str]] = None
+    space: Literal["main", "trading"] = "main"
 
 
 class PostUpdate(BaseModel):
     text: str = Field(default="", max_length=2000)
     mentions: Optional[List[str]] = None
+    space: Literal["main", "trading"] = "main"
 
 
 REACTIONS = ["😂", "🩷", "🤑", "🥳", "🔥", "🗣️", "🤗", "🤬"]
@@ -112,6 +115,8 @@ async def get_post_or_404(post_id: str, viewer_id: str) -> dict:
     post = await db.posts.find_one({"post_id": post_id, "deleted_at": None}, NO_ID)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+    if post.get("space") == "trading" and not has_access(await db.users.find_one({"user_id": viewer_id}, NO_ID) or {}, "trading_only"):
+        raise HTTPException(status_code=402, detail="Premium membership required for Trading Only")
     if post.get("space") == "mingle":
         # Mingle content is members-only and hidden between blocked members.
         if not await db.mingle_profiles.find_one({"user_id": viewer_id, "deleted_at": None}, NO_ID):
@@ -137,6 +142,8 @@ async def create_post(body: PostCreate, user=Depends(get_current_user)):
     text = body.text.strip()
     if not text and not body.media:
         raise HTTPException(status_code=400, detail="Add some text, media or a GIF")
+    if body.space == "trading" and not has_access(user, "trading_only"):
+        raise HTTPException(status_code=402, detail="Premium membership required for Trading Only")
     doc = {
         "post_id": new_id("post"),
         "author_id": user["user_id"],
@@ -146,7 +153,7 @@ async def create_post(body: PostCreate, user=Depends(get_current_user)):
         "likes_count": 0,
         "comments_count": 0,
         "shares_count": 0,
-        "space": "main",
+        "space": body.space,
         "created_at": now_utc(),
         "deleted_at": None,
     }
@@ -161,11 +168,18 @@ async def create_post(body: PostCreate, user=Depends(get_current_user)):
 @router.get("/posts")
 async def list_posts(
     scope: Literal["all", "following"] = "all",
+    space: Literal["main", "trading"] = "main",
     before: Optional[datetime] = None,
     limit: int = Query(default=20, le=50),
     user=Depends(get_current_user),
 ):
-    query = {"deleted_at": None, **MAIN_SPACE}
+    if space == "trading":
+        # Trading Only: same feed machinery, Premium members only, posts stay in this space.
+        if not has_access(user, "trading_only"):
+            raise HTTPException(status_code=402, detail="Premium membership required for Trading Only")
+        query = {"deleted_at": None, "space": "trading"}
+    else:
+        query = {"deleted_at": None, **MAIN_SPACE}
     if scope == "following":
         ids = [f["following_id"] async for f in db.follows.find({"follower_id": user["user_id"]}, NO_ID)]
         ids.append(user["user_id"])
@@ -379,6 +393,6 @@ async def saved_posts(user=Depends(get_current_user)):
     ids = [b["post_id"] async for b in cursor]
     if not ids:
         return []
-    posts = {p["post_id"]: p async for p in db.posts.find({"post_id": {"$in": ids}, "deleted_at": None, **MAIN_SPACE}, NO_ID)}
+    posts = {p["post_id"]: p async for p in db.posts.find({"post_id": {"$in": ids}, "deleted_at": None, "space": {"$ne": "mingle"}}, NO_ID)}
     ordered = [posts[i] for i in ids if i in posts]
     return await enrich_posts(ordered, user["user_id"])
