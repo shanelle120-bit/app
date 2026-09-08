@@ -8,6 +8,16 @@ import { IconButton } from "@/src/components/ui";
 import { getLegalDoc } from "@/src/legal-content";
 import { makeStyles, useTheme } from "@/src/theme";
 
+// Source documents mark section headings as short, fully upper-case lines
+// (e.g. "ELIGIBILITY", "DATA RETENTION"). Detect them so we can render a
+// distinct, more scannable heading style instead of a plain paragraph.
+function isSectionHeading(text: string): boolean {
+  const letters = text.replace(/[^A-Za-z]/g, "");
+  if (!letters || letters.length < 2) return false;
+  const wordCount = text.trim().split(/\s+/).length;
+  return letters === letters.toUpperCase() && wordCount <= 12;
+}
+
 export default function LegalDocScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -33,11 +43,17 @@ export default function LegalDocScreen() {
               <Ionicons name={doc.icon as any} size={28} color={colors.brandSecondary} />
             </View>
             <Text style={styles.title}>{doc.title}</Text>
-            {doc.body.map((p, i) => (
-              <Text key={i} style={styles.paragraph}>
-                {p}
-              </Text>
-            ))}
+            {doc.body.map((p, i) =>
+              isSectionHeading(p) ? (
+                <Text key={i} style={styles.heading}>
+                  {p}
+                </Text>
+              ) : (
+                <Text key={i} style={styles.paragraph}>
+                  {p}
+                </Text>
+              )
+            )}
           </>
         ) : (
           <Text style={styles.paragraph}>This policy page could not be found.</Text>
@@ -62,5 +78,6 @@ const useStyles = makeStyles((colors) => ({
   content: { paddingHorizontal: 24, paddingTop: 24 },
   iconWrap: { width: 56, height: 56, borderRadius: 18, backgroundColor: colors.cyanSoft, alignItems: "center", justifyContent: "center", marginBottom: 16 },
   title: { color: colors.onSurface, fontSize: 26, fontWeight: "500", letterSpacing: -0.4, marginBottom: 16 },
+  heading: { color: colors.onSurface, fontSize: 15, fontWeight: "700", letterSpacing: 0.2, marginTop: 10, marginBottom: 8 },
   paragraph: { color: colors.silver, fontSize: 15, lineHeight: 23, marginBottom: 14 },
 }));
