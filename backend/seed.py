@@ -181,3 +181,19 @@ async def ensure_demo_premium():
             await db.mingle_actions.update_one({"from_id": u["user_id"], "to_id": demo["user_id"]},
                                                {"$set": {"action": seeds[u["username"]], "created_at": now}}, upsert=True)
             await notify(demo["user_id"], u["user_id"], f"mingle_{seeds[u['username']]}")
+
+
+ACC_SEED = {
+    "ava_forex": {"markets": ["Forex"], "instruments": "GBPUSD, EURUSD", "session": "London", "timezone": "GMT", "frequency": "Daily",
+                  "working_on": "Two setups a day, then close the laptop.", "looking_for": ["Daily Check-ins", "Discipline Support"]},
+    "marcus_fx": {"markets": ["Futures"], "instruments": "NQ, ES", "session": "NY", "timezone": "EST", "frequency": "Few times a week",
+                  "working_on": "Respecting my max loss on red days.", "looking_for": ["Prop Firm Accountability", "Trading Psychology"]},
+}
+
+
+async def seed_accountability():
+    """A couple of seeded members open to accountability so Find Your Partner isn't empty."""
+    async for u in db.users.find({"username": {"$in": list(ACC_SEED)}}, NO_ID):
+        if not await db.acc_profiles.find_one({"user_id": u["user_id"]}, NO_ID):
+            await db.acc_profiles.insert_one({**ACC_SEED[u["username"]], "user_id": u["user_id"], "created_at": now_utc(),
+                                              "sharing": {"plan": True, "discipline": True, "plan_followed": True, "pnl": True, "mood": False, "notes": False, "screenshots": False}})

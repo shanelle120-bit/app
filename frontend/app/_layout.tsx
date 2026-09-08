@@ -50,6 +50,7 @@ function RootNavigator() {
         <Stack.Screen name="connections" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="mingle" />
+        <Stack.Screen name="accountability" />
       </Stack.Protected>
     </Stack>
   );

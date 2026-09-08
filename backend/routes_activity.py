@@ -10,7 +10,7 @@ router = APIRouter(tags=["activity"])
 # Pricing is intentionally undecided; plans are structural only until payments are wired.
 PLANS = {
     "monthly": {"id": "monthly", "name": "Premium Monthly", "price": None, "price_note": "Pricing announced at launch",
-                "perks": ["Single & Mingle", "Accountability Partners (soon)", "Trading Only room (soon)"]},
+                "perks": ["Single & Mingle", "Accountability Partners", "Trading Only room (soon)"]},
     "yearly": {"id": "yearly", "name": "Premium Yearly", "price": None, "price_note": "Pricing announced at launch", "badge": "Best value",
                "perks": ["Everything in Monthly", "Founding member badge", "Priority access to new rooms"]},
 }
@@ -18,7 +18,7 @@ PLANS = {
 # Feature registry: flip `premium` to gate any feature behind membership, `available` when it ships.
 FEATURES = {
     "single_mingle": {"key": "single_mingle", "name": "Single & Mingle", "premium": True, "available": True},
-    "accountability": {"key": "accountability", "name": "Accountability Partners", "premium": True, "available": False},
+    "accountability": {"key": "accountability", "name": "Accountability Partners", "premium": True, "available": True},
     "trading_only": {"key": "trading_only", "name": "Trading Only", "premium": True, "available": False},
 }
 
