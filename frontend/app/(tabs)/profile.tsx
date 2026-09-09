@@ -9,6 +9,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth-context";
 import { ProfileView } from "@/src/components/profile-view";
 import { Button, Loader } from "@/src/components/ui";
+import { useMembership } from "@/src/hooks/use-membership";
 import { LEGAL_DOCS } from "@/src/legal-content";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
@@ -21,6 +22,7 @@ export default function MyProfile() {
   const router = useRouter();
   const toast = useToast();
   const { user: authUser, logout } = useAuth();
+  const { isPremium, openPortal } = useMembership();
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -93,6 +95,36 @@ export default function MyProfile() {
                   <Ionicons name="log-out-outline" size={20} color={colors.error} />
                   <Text style={[styles.sheetText, { color: colors.error }]}>Log out</Text>
                 </Pressable>
+
+                <Text style={styles.sectionLabel}>PREMIUM</Text>
+                {isPremium ? (
+                  <Pressable
+                    style={styles.sheetItem}
+                    onPress={() => {
+                      setMenu(false);
+                      openPortal.mutate(undefined, { onError: (e: Error) => toast.show(e.message, "error") });
+                    }}
+                    disabled={openPortal.isPending}
+                    testID="profile-manage-subscription-button"
+                  >
+                    <Ionicons name="card-outline" size={20} color={colors.muted} />
+                    <Text style={styles.sheetText}>Manage Subscription</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.sheetItem}
+                    onPress={() => {
+                      setMenu(false);
+                      router.push("/(tabs)/premium");
+                    }}
+                    testID="profile-go-premium-button"
+                  >
+                    <Ionicons name="diamond-outline" size={20} color={colors.muted} />
+                    <Text style={styles.sheetText}>Go Premium</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                  </Pressable>
+                )}
 
                 <Text style={styles.sectionLabel}>LEGAL</Text>
                 {LEGAL_DOCS.map((doc) => (

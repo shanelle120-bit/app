@@ -79,6 +79,9 @@ export type Membership = {
   plan: "monthly" | "yearly" | null;
   since: string | null;
   source: string | null;
+  cancel_at_period_end: boolean;
+  current_period_end: number | null;
+  subscription_status: string | null;
   plans: PremiumPlan[];
   features: PremiumFeature[];
   notified_billing: boolean;

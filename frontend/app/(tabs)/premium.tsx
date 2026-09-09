@@ -46,8 +46,8 @@ export default function Premium() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const router = useRouter();
-  const { membership, isPremium, feature, activate, cancel, notifyBilling, notifiedBilling } = useMembership();
-  const [plan, setPlan] = useState<PremiumPlan["id"]>("yearly");
+  const { membership, isPremium, feature, startCheckout, openPortal } = useMembership();
+  const [plan, setPlan] = useState<PremiumPlan["id"]>("monthly");
 
   const toneColor = { brand: colors.brandPrimary, cyan: colors.brandSecondary, blue: colors.brandTertiary };
   const planName = membership?.plans.find((p) => p.id === membership.plan)?.name;
@@ -61,13 +61,13 @@ export default function Premium() {
           <View style={[styles.heroContent, { paddingTop: insets.top + 24 }]}>
             <View style={[styles.pill, isPremium && { backgroundColor: colors.brandSoft }]} testID="premium-status-pill">
               <Ionicons name="diamond" size={12} color={isPremium ? colors.brandPrimary : colors.brandSecondary} />
-              <Text style={[styles.pillText, isPremium && { color: colors.brandPrimary }]}>{isPremium ? "PREMIUM · ACTIVE" : "PREMIUM · PREVIEW"}</Text>
+              <Text style={[styles.pillText, isPremium && { color: colors.brandPrimary }]}>{isPremium ? "PREMIUM · ACTIVE" : "14-DAY FREE TRIAL"}</Text>
             </View>
             <Text style={styles.title}>{isPremium ? "You're a Premium member" : "Level up your circle"}</Text>
             <Text style={styles.subtitle}>
               {isPremium
-                ? `${planName ?? "Premium"} · members-only rooms are unlocked as they open.`
-                : "Members-only rooms built for how traders actually connect. Activate the free preview to unlock what's open today."}
+                ? `${planName ?? "Premium"} · members-only rooms are unlocked.`
+                : "Members-only rooms built for how traders actually connect. Start your 14-day free trial to unlock what's open today."}
             </Text>
           </View>
         </View>
@@ -122,53 +122,33 @@ export default function Premium() {
                 <Ionicons name="checkmark-circle" size={22} color={colors.success} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.statusTitle}>Membership active</Text>
-                  <Text style={styles.statusBody}>{planName ?? "Premium"} · free preview, no payment taken. Pricing will be announced at launch.</Text>
+                  <Text style={styles.statusBody}>
+                    {planName ?? "Premium"} · $9.99/mo
+                    {membership?.cancel_at_period_end ? " · cancels at the end of this billing period" : membership?.subscription_status === "trialing" ? " · free trial in progress" : ""}
+                  </Text>
                 </View>
               </View>
               <Button
-                title="Cancel preview membership"
+                title="Manage subscription"
                 variant="ghost"
-                loading={cancel.isPending}
-                onPress={() =>
-                  cancel.mutate(undefined, {
-                    onSuccess: () => toast.show("Premium cancelled. You're back on the free tier.", "info"),
-                    onError: (e: Error) => toast.show(e.message, "error"),
-                  })
-                }
-                testID="premium-cancel-button"
+                icon="card-outline"
+                loading={openPortal.isPending}
+                onPress={() => openPortal.mutate(undefined, { onError: (e: Error) => toast.show(e.message, "error") })}
+                testID="premium-manage-subscription-button"
               />
             </>
           ) : (
             <>
-              <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
+              <Text style={styles.sectionLabel}>PREMIUM PLAN</Text>
               <PlanPicker plans={membership?.plans ?? []} value={plan} onChange={setPlan} />
               <Button
-                title="Activate Premium (free preview)"
+                title="Start 14-day free trial"
                 icon="sparkles"
-                loading={activate.isPending}
-                onPress={() =>
-                  activate.mutate(plan, {
-                    onSuccess: () => toast.show("Premium unlocked ✨ Single & Mingle is open.", "success"),
-                    onError: (e: Error) => toast.show(e.message, "error"),
-                  })
-                }
+                loading={startCheckout.isPending}
+                onPress={() => startCheckout.mutate(plan, { onError: (e: Error) => toast.show(e.message, "error") })}
                 testID="premium-activate-button"
               />
-              <Button
-                title={notifiedBilling ? "You're on the list ✓" : "Notify me when billing launches"}
-                variant="secondary"
-                icon={notifiedBilling ? "checkmark-circle-outline" : "notifications-outline"}
-                disabled={notifiedBilling}
-                loading={notifyBilling.isPending}
-                onPress={() =>
-                  notifyBilling.mutate(plan, {
-                    onSuccess: () => toast.show("You're on the list. We'll let you know.", "success"),
-                    onError: (e: Error) => toast.show(e.message, "error"),
-                  })
-                }
-                testID="premium-notify-button"
-              />
-              <Text style={styles.footnote}>No payment is taken during the preview. Pricing and billing will be announced at launch.</Text>
+              <Text style={styles.footnote}>Card required to start. $9.99/month after your 14-day trial — cancel any time from Settings, including free during the trial.</Text>
               <Pressable onPress={() => router.push("/legal/premium-policy")} hitSlop={8} style={{ alignSelf: "center", minHeight: 32, justifyContent: "center" }} testID="premium-policy-link">
                 <Text style={styles.policyLink}>Subscription, Cancellation & Refund Policy</Text>
               </Pressable>

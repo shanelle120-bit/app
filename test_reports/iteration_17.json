@@ -1,0 +1,28 @@
+{
+  "summary": "Tested real Stripe subscription billing feature (LIVE keys, no real payment ever completed per safety constraint), login tagline update, Yearly plan removal, and legal page max-width fix. Backend: 13/13 pytest cases passed covering /api/membership (monthly-only plans), /api/billing/checkout-link (valid buy.stripe.com URL w/ client_reference_id + prefilled_email, checkout_tokens persisted in Mongo - verified directly), /api/billing/portal (400 'No subscription found to manage yet' for demo user with no stripe_customer_id), /api/stripe/webhook (invalid/missing signature -> 400, server stays healthy), and regression on notify-billing/admin-billing-waitlist (still functional). Frontend: login screen shows both tagline lines correctly; demo@leveluphub.com (premium via old mock) sees 'Manage subscription' in both Premium tab and Profile>Settings, tapping it correctly surfaces the 400 error as a toast ('No subscription found to manage yet') - expected behavior; fresh free-tier signup sees 'Go Premium' in Profile settings and 'Start 14-day free trial' with ONLY the Monthly plan on the Premium tab and on the Single & Mingle paywall gate - tapping it opened a new tab to a genuine https://buy.stripe.com/... URL containing correct client_reference_id and prefilled_email matching the test user, then the tab was closed immediately without any payment interaction. Legal page maxWidth verified precisely: on a 1920px viewport, text container measured exactly 700px wide, centered (left=610px, right=1310px).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration17_stripe_billing.py", "/app/test_reports/pytest/iteration17_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_billing.py is clean and well-scoped: webhook never trusts client redirect as source of truth, uses checkout_tokens for correlation, idempotent via stripe_events unique insert + DuplicateKeyError catch, and _apply_checkout_completed correctly marks tokens used atomically via find_one_and_update with {used: False} filter to prevent replay/double-processing.",
+    "PLANS dict in routes_activity.py correctly reduced to monthly-only; ActivateBody/NotifyBillingBody still accept Literal['monthly','yearly'] for the old/unused activate endpoint and notify-billing plan field - harmless (notify-billing is just a waitlist signup, not billing itself) but slightly inconsistent since yearly no longer exists as a real plan anywhere in the UI. Not a functional bug, just a minor leftover.",
+    "use-membership.ts correctly avoids ever flipping tier client-side; relies solely on webhook-driven /auth/me + /membership resync on window focus (web) which is the right pattern for not trusting client-side billing redirects.",
+    "legal/[slug].tsx maxWidth:700 fix verified pixel-precise via getBoundingClientRect - exactly 700px, centered."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (13/13 pytest passed)", "frontend": "100% (all manual UI/integration checks passed: login tagline, plan picker monthly-only, Start 14-day free trial CTA + Stripe URL params, paywall gate button/plan, Profile Premium section for both premium/free states, Manage Subscription 400-toast flow, legal page max-width)"},
+  "seed_data_creation": "Created several TEST_freeuser*@example.com signups (via UI) for free-tier paywall testing; also created ~5 checkout_tokens documents in Mongo via checkout-link calls during testing (harmless, unused: token, user_id, used=false, created_at).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Full webhook success path (checkout.session.completed promoting user to premium, subscription.deleted demoting) was NOT independently re-verified by me since main agent already verified it out-of-band with a monkeypatched Stripe SDK per the agent-to-agent context note - only re-verify if webhook logic changes in a future iteration. All testing done against LIVE Stripe keys; no real payment was ever submitted on the hosted Stripe page (only navigated to it, captured URL params, and closed the tab).",
+  "rca_of_issue": "N/A - no bugs found this iteration."
+}

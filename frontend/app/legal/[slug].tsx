@@ -39,21 +39,23 @@ export default function LegalDocScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
         {doc ? (
           <>
-            <View style={styles.iconWrap}>
-              <Ionicons name={doc.icon as any} size={28} color={colors.brandSecondary} />
+            <View style={styles.body}>
+              <View style={styles.iconWrap}>
+                <Ionicons name={doc.icon as any} size={28} color={colors.brandSecondary} />
+              </View>
+              <Text style={styles.title}>{doc.title}</Text>
+              {doc.body.map((p, i) =>
+                isSectionHeading(p) ? (
+                  <Text key={i} style={styles.heading}>
+                    {p}
+                  </Text>
+                ) : (
+                  <Text key={i} style={styles.paragraph}>
+                    {p}
+                  </Text>
+                )
+              )}
             </View>
-            <Text style={styles.title}>{doc.title}</Text>
-            {doc.body.map((p, i) =>
-              isSectionHeading(p) ? (
-                <Text key={i} style={styles.heading}>
-                  {p}
-                </Text>
-              ) : (
-                <Text key={i} style={styles.paragraph}>
-                  {p}
-                </Text>
-              )
-            )}
           </>
         ) : (
           <Text style={styles.paragraph}>This policy page could not be found.</Text>
@@ -75,7 +77,8 @@ const useStyles = makeStyles((colors) => ({
     borderBottomColor: colors.border,
   },
   headerTitle: { flex: 1, color: colors.onSurface, fontSize: 16, fontWeight: "500", textAlign: "center" },
-  content: { paddingHorizontal: 24, paddingTop: 24 },
+  content: { paddingHorizontal: 24, paddingTop: 24, alignItems: "center" },
+  body: { width: "100%", maxWidth: 700 },
   iconWrap: { width: 56, height: 56, borderRadius: 18, backgroundColor: colors.cyanSoft, alignItems: "center", justifyContent: "center", marginBottom: 16 },
   title: { color: colors.onSurface, fontSize: 26, fontWeight: "500", letterSpacing: -0.4, marginBottom: 16 },
   heading: { color: colors.onSurface, fontSize: 15, fontWeight: "700", letterSpacing: 0.2, marginTop: 10, marginBottom: 8 },

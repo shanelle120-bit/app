@@ -288,3 +288,6 @@ async def ensure_indexes():
     await db.mingle_blocks.create_index([("blocker_id", 1), ("blocked_id", 1)], unique=True)
     await db.mingle_connections.create_index("participants")
     await db.billing_waitlist.create_index("user_id", unique=True)
+    await db.checkout_tokens.create_index("token", unique=True)
+    await db.stripe_events.create_index("event_id", unique=True)
+    await db.users.create_index("stripe_customer_id", unique=True, sparse=True)

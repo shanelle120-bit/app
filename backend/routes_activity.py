@@ -7,12 +7,10 @@ from core import db, NO_ID, now_utc, new_id, get_current_user, require_admin, au
 
 router = APIRouter(tags=["activity"])
 
-# Pricing is intentionally undecided; plans are structural only until payments are wired.
+# Real pricing: $9.99/mo with a 14-day free trial, fulfilled via Stripe (see routes_billing.py).
 PLANS = {
-    "monthly": {"id": "monthly", "name": "Premium Monthly", "price": None, "price_note": "Pricing announced at launch",
+    "monthly": {"id": "monthly", "name": "Premium Monthly", "price": "$9.99/mo", "price_note": "14-day free trial, then $9.99/month",
                 "perks": ["Single & Mingle", "Accountability Partners", "Trading Only room"]},
-    "yearly": {"id": "yearly", "name": "Premium Yearly", "price": None, "price_note": "Pricing announced at launch", "badge": "Best value",
-               "perks": ["Everything in Monthly", "Founding member badge", "Priority access to new rooms"]},
 }
 
 # Feature registry: flip `premium` to gate any feature behind membership, `available` when it ships.
@@ -97,6 +95,9 @@ async def membership(user=Depends(get_current_user)):
     m = user.get("membership") or {"tier": "free"}
     waitlisted = await db.billing_waitlist.find_one({"user_id": user["user_id"]}, NO_ID)
     return {"tier": m.get("tier", "free"), "plan": m.get("plan"), "since": m.get("since"), "source": m.get("source"),
+            "cancel_at_period_end": m.get("cancel_at_period_end", False),
+            "current_period_end": m.get("current_period_end"),
+            "subscription_status": user.get("subscription_status"),
             "plans": list(PLANS.values()),
             "features": [{**f, "unlocked": has_access(user, k)} for k, f in FEATURES.items()],
             "notified_billing": waitlisted is not None}

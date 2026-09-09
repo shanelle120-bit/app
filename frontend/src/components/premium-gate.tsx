@@ -12,7 +12,7 @@ import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
 import type { PremiumPlan } from "@/src/types";
 
-/** Plan picker shared by the Premium tab and feature paywalls. Pricing is intentionally TBD. */
+/** Plan picker shared by the Premium tab and feature paywalls. */
 export function PlanPicker({ plans, value, onChange }: { plans: PremiumPlan[]; value: PremiumPlan["id"]; onChange: (id: PremiumPlan["id"]) => void }) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -54,9 +54,8 @@ export function PremiumPaywall({ featureKey, title, lead, icon = "diamond", onBa
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const router = useRouter();
-  const { membership, activate } = useMembership();
-  const [plan, setPlan] = useState<PremiumPlan["id"]>("yearly");
-  const feature = membership?.features.find((f) => f.key === featureKey);
+  const { membership, startCheckout } = useMembership();
+  const [plan, setPlan] = useState<PremiumPlan["id"]>("monthly");
 
   return (
     <View style={styles.root} testID="premium-paywall">
@@ -77,22 +76,17 @@ export function PremiumPaywall({ featureKey, title, lead, icon = "diamond", onBa
           <Text style={styles.lead}>{lead}</Text>
         </Animated.View>
         <Animated.View entering={FadeInUp.delay(150).duration(450)} style={{ marginTop: 28, gap: 14 }}>
-          <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
+          <Text style={styles.sectionLabel}>PREMIUM PLAN</Text>
           <PlanPicker plans={membership?.plans ?? []} value={plan} onChange={setPlan} />
           <Button
-            title={activate.isPending ? "Activating…" : "Activate Premium (free preview)"}
+            title="Start 14-day free trial"
             icon="sparkles"
-            loading={activate.isPending}
-            onPress={() =>
-              activate.mutate(plan, {
-                onSuccess: () => toast.show(`Premium unlocked${feature ? ` · ${feature.name} is open` : ""} ✨`, "success"),
-                onError: (e: Error) => toast.show(e.message, "error"),
-              })
-            }
+            loading={startCheckout.isPending}
+            onPress={() => startCheckout.mutate(plan, { onError: (e: Error) => toast.show(e.message, "error") })}
             testID="paywall-activate-button"
           />
           <Button title="Not now" variant="ghost" onPress={onBack} testID="paywall-not-now-button" />
-          <Text style={styles.footnote}>No payment is taken during the preview. Pricing and billing will be announced at launch — you can cancel any time from the Premium tab.</Text>
+          <Text style={styles.footnote}>Card required to start. $9.99/month after your 14-day trial — cancel any time from Settings, including free during the trial.</Text>
           <Pressable onPress={() => router.push("/legal/premium-policy")} hitSlop={8} style={{ alignSelf: "center", minHeight: 32, justifyContent: "center" }} testID="paywall-policy-link">
             <Text style={styles.policyLink}>Subscription, Cancellation & Refund Policy</Text>
           </Pressable>
