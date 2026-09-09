@@ -35,6 +35,7 @@ RESET_CODE_MINUTES = int(os.environ.get("RESET_CODE_MINUTES", "30"))
 GIPHY_API_KEY = os.environ.get("GIPHY_API_KEY", "")
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 APP_NAME = os.environ.get("APP_NAME", "level-up-trading-hub")
+ADMIN_EMAILS = {e.strip().casefold() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
@@ -114,6 +115,30 @@ async def get_optional_user(request: Request) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Admin access (allowlisted by email, persisted as a one-way upgrade on the
+# user document — authorization always reads the persisted `is_admin` flag,
+# never a live email comparison, per standard JWT/role-gating practice).
+# ---------------------------------------------------------------------------
+def is_admin_email(email: Optional[str]) -> bool:
+    return bool(email) and email.strip().casefold() in ADMIN_EMAILS
+
+
+async def sync_admin_flag(user: dict) -> dict:
+    """Idempotently promote a user to admin if their email is allowlisted.
+    Upgrade-only: never revokes an existing is_admin flag automatically."""
+    if not user.get("is_admin") and is_admin_email(user.get("email")):
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"is_admin": True}})
+        user = {**user, "is_admin": True}
+    return user
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("is_admin", False) is not True:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+# ---------------------------------------------------------------------------
 # Serialization helpers
 # ---------------------------------------------------------------------------
 PUBLIC_USER_FIELDS = [
@@ -137,6 +162,7 @@ def public_user(doc: dict, include_private: bool = False) -> dict:
     if include_private:
         out["email"] = doc.get("email")
         out["auth_providers"] = doc.get("auth_providers", [])
+        out["is_admin"] = bool(doc.get("is_admin"))
     out["tier"] = (doc.get("membership") or {}).get("tier", "free")
     return out
 
@@ -261,3 +287,4 @@ async def ensure_indexes():
     await db.mingle_actions.create_index([("from_id", 1), ("to_id", 1)], unique=True)
     await db.mingle_blocks.create_index([("blocker_id", 1), ("blocked_id", 1)], unique=True)
     await db.mingle_connections.create_index("participants")
+    await db.billing_waitlist.create_index("user_id", unique=True)

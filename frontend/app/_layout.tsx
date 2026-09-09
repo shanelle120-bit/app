@@ -53,6 +53,7 @@ function RootNavigator() {
         <Stack.Screen name="mingle" />
         <Stack.Screen name="accountability" />
         <Stack.Screen name="trading" />
+        <Stack.Screen name="admin/billing-waitlist" />
       </Stack.Protected>
     </Stack>
   );

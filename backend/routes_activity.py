@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core import db, NO_ID, now_utc, new_id, get_current_user, author_summary, users_map, public_user, mingle_summaries
+from core import db, NO_ID, now_utc, new_id, get_current_user, require_admin, author_summary, users_map, public_user, mingle_summaries
 
 router = APIRouter(tags=["activity"])
 
@@ -95,9 +95,11 @@ require_premium = require_feature("single_mingle")
 @router.get("/membership")
 async def membership(user=Depends(get_current_user)):
     m = user.get("membership") or {"tier": "free"}
+    waitlisted = await db.billing_waitlist.find_one({"user_id": user["user_id"]}, NO_ID)
     return {"tier": m.get("tier", "free"), "plan": m.get("plan"), "since": m.get("since"), "source": m.get("source"),
             "plans": list(PLANS.values()),
-            "features": [{**f, "unlocked": has_access(user, k)} for k, f in FEATURES.items()]}
+            "features": [{**f, "unlocked": has_access(user, k)} for k, f in FEATURES.items()],
+            "notified_billing": waitlisted is not None}
 
 
 @router.post("/membership/activate")
@@ -113,3 +115,40 @@ async def cancel(user=Depends(get_current_user)):
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"membership": {"tier": "free", "cancelled_at": now_utc()}}})
     fresh = await db.users.find_one({"user_id": user["user_id"]}, NO_ID)
     return public_user(fresh, include_private=True)
+
+
+# ---------------------------------------------------------------------------
+# Billing waitlist ("Notify me when billing launches")
+# ---------------------------------------------------------------------------
+class NotifyBillingBody(BaseModel):
+    plan: Optional[Literal["monthly", "yearly"]] = None
+
+
+@router.post("/membership/notify-billing")
+async def notify_billing(body: NotifyBillingBody, user=Depends(get_current_user)):
+    """Idempotent per-user signup for the billing-launch waitlist. Re-tapping the
+    button just refreshes `updated_at`/plan instead of creating a duplicate entry."""
+    await db.billing_waitlist.update_one(
+        {"user_id": user["user_id"]},
+        {
+            "$set": {
+                "email": user.get("email"),
+                "display_name": user.get("display_name"),
+                "plan": body.plan,
+                "updated_at": now_utc(),
+            },
+            "$setOnInsert": {"user_id": user["user_id"], "created_at": now_utc()},
+        },
+        upsert=True,
+    )
+    return {"ok": True, "message": "You're on the list. We'll let you know."}
+
+
+@router.get("/admin/billing-waitlist")
+async def admin_billing_waitlist(_admin=Depends(require_admin)):
+    cursor = db.billing_waitlist.find({}, NO_ID).sort("created_at", -1)
+    items = [w async for w in cursor]
+    for w in items:
+        w["created_at"] = w["created_at"].isoformat()
+        w["updated_at"] = w["updated_at"].isoformat() if w.get("updated_at") else None
+    return {"items": items, "count": len(items)}

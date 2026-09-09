@@ -56,7 +56,8 @@
           "photosPermission": "Share chart screenshots and photos in posts"
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

@@ -105,6 +105,24 @@ export default function MyProfile() {
                   </Pressable>
                 ))}
 
+                {authUser?.is_admin ? (
+                  <>
+                    <Text style={styles.sectionLabel}>ADMIN</Text>
+                    <Pressable
+                      style={styles.sheetItem}
+                      onPress={() => {
+                        setMenu(false);
+                        router.push("/admin/billing-waitlist");
+                      }}
+                      testID="profile-admin-billing-waitlist"
+                    >
+                      <Ionicons name="notifications-outline" size={20} color={colors.muted} />
+                      <Text style={styles.sheetText}>Billing Waitlist</Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                    </Pressable>
+                  </>
+                ) : null}
+
                 <Text style={[styles.sectionLabel, { color: colors.error }]}>DANGER ZONE</Text>
                 <Pressable style={styles.sheetItem} onPress={() => openLegal("account-deletion")} testID="profile-deletion-policy-link">
                   <Ionicons name="document-text-outline" size={20} color={colors.muted} />

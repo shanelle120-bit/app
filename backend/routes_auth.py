@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from core import (
     db, NO_ID, now_utc, new_id, aware, normalized_email, password_hash, DUMMY_HASH,
-    make_access_token, get_current_user, public_user, RESET_CODE_MINUTES, logger,
+    make_access_token, get_current_user, public_user, RESET_CODE_MINUTES, logger, sync_admin_flag,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -87,6 +87,7 @@ def base_user(email: str, display_name: str, providers: list, avatar_url: Option
         "consent_at": None,
         "has_seen_trading_disclaimer": False,
         "has_seen_mingle_safety": False,
+        "is_admin": False,
     }
 
 
@@ -109,6 +110,7 @@ async def signup(body: SignupBody):
     doc["consent_at"] = now_utc()
     await db.users.insert_one(doc)
     doc.pop("_id", None)
+    doc = await sync_admin_flag(doc)
     return {
         "access_token": make_access_token(doc["user_id"], email, "password"),
         "token_type": "bearer",
@@ -123,6 +125,7 @@ async def login(body: LoginBody):
     stored = user.get("password_hash") if user else None
     if not password_hash.verify(body.password, stored or DUMMY_HASH) or not stored:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    user = await sync_admin_flag(user)
     return {
         "access_token": make_access_token(user["user_id"], user["email"], "password"),
         "token_type": "bearer",
@@ -201,6 +204,7 @@ async def exchange_session(body: SessionBody):
         await db.users.insert_one(user)
         user.pop("_id", None)
 
+    user = await sync_admin_flag(user)
     session_token = data["session_token"]
     await db.user_sessions.insert_one({
         "session_token": session_token,

@@ -46,7 +46,7 @@ export default function Premium() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const router = useRouter();
-  const { membership, isPremium, feature, activate, cancel } = useMembership();
+  const { membership, isPremium, feature, activate, cancel, notifyBilling, notifiedBilling } = useMembership();
   const [plan, setPlan] = useState<PremiumPlan["id"]>("yearly");
 
   const toneColor = { brand: colors.brandPrimary, cyan: colors.brandSecondary, blue: colors.brandTertiary };
@@ -154,7 +154,20 @@ export default function Premium() {
                 }
                 testID="premium-activate-button"
               />
-              <Button title="Notify me when billing launches" variant="secondary" icon="notifications-outline" onPress={() => toast.show("You're on the list. We'll let you know.", "success")} testID="premium-notify-button" />
+              <Button
+                title={notifiedBilling ? "You're on the list ✓" : "Notify me when billing launches"}
+                variant="secondary"
+                icon={notifiedBilling ? "checkmark-circle-outline" : "notifications-outline"}
+                disabled={notifiedBilling}
+                loading={notifyBilling.isPending}
+                onPress={() =>
+                  notifyBilling.mutate(plan, {
+                    onSuccess: () => toast.show("You're on the list. We'll let you know.", "success"),
+                    onError: (e: Error) => toast.show(e.message, "error"),
+                  })
+                }
+                testID="premium-notify-button"
+              />
               <Text style={styles.footnote}>No payment is taken during the preview. Pricing and billing will be announced at launch.</Text>
               <Pressable onPress={() => router.push("/legal/premium-policy")} hitSlop={8} style={{ alignSelf: "center", minHeight: 32, justifyContent: "center" }} testID="premium-policy-link">
                 <Text style={styles.policyLink}>Subscription, Cancellation & Refund Policy</Text>

@@ -37,6 +37,7 @@ export type User = {
   created_at?: string;
   has_seen_trading_disclaimer?: boolean;
   has_seen_mingle_safety?: boolean;
+  is_admin?: boolean;
 };
 
 export type NotificationType = "like" | "comment" | "mention" | "follow" | "mingle_hi" | "mingle_interested" | "mingle_match";
@@ -80,6 +81,16 @@ export type Membership = {
   source: string | null;
   plans: PremiumPlan[];
   features: PremiumFeature[];
+  notified_billing: boolean;
+};
+
+export type BillingWaitlistEntry = {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  plan: "monthly" | "yearly" | null;
+  created_at: string;
+  updated_at: string | null;
 };
 
 export type MediaItem = {

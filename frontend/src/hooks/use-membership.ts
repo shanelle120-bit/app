@@ -37,6 +37,10 @@ export function useMembership() {
     mutationFn: () => api<User>("/membership/cancel", { method: "POST" }),
     onSuccess: afterChange,
   });
+  const notifyBilling = useMutation({
+    mutationFn: (plan?: PremiumPlan["id"]) => api<{ ok: boolean; message: string }>("/membership/notify-billing", { method: "POST", body: { plan: plan ?? null } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: membershipKey }),
+  });
 
-  return { membership: query.data, isLoading: query.isLoading, isPremium, feature, hasAccess, activate, cancel };
+  return { membership: query.data, isLoading: query.isLoading, isPremium, feature, hasAccess, activate, cancel, notifyBilling, notifiedBilling: !!query.data?.notified_billing };
 }
