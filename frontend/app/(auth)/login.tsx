@@ -42,8 +42,7 @@ export default function Login() {
       <KeyboardAwareScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]} bottomOffset={24}>
         <Text style={styles.eyebrow}>WELCOME BACK</Text>
         <Text style={styles.title}>Log in to the hub</Text>
-        <Text style={styles.subtitle}>Where Traders Connect Beyond the Charts</Text>
-        <Text style={styles.subtitleSecondary}>Community First... No Advertising/Soliciting.</Text>
+        <Text style={styles.subtitle}>Where Traders Connect Beyond the Charts... No Advertising/Soliciting.</Text>
 
         <View style={styles.form}>
           <Input
@@ -101,7 +100,6 @@ const useStyles = makeStyles((colors) => ({
   eyebrow: { color: colors.brandSecondary, fontSize: 12, letterSpacing: 1.5 },
   title: { color: colors.onSurface, fontSize: 32, fontWeight: "500", marginTop: 8, letterSpacing: -0.5 },
   subtitle: { color: colors.muted, fontSize: 14, marginTop: 6 },
-  subtitleSecondary: { color: colors.muted, fontSize: 14, marginTop: 2 },
   form: { marginTop: 32, gap: 16 },
   forgot: { alignSelf: "flex-end", minHeight: 32, justifyContent: "center" },
   forgotText: { color: colors.silver, fontSize: 14 },
