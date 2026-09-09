@@ -79,6 +79,7 @@ def base_user(email: str, display_name: str, providers: list, avatar_url: Option
         "posts_count": 0,
         "onboarding_complete": False,
         "is_verified": False,
+        "is_founding_member": False,
         "created_at": now,
         "password_changed_at": None,
         "deleted_at": None,

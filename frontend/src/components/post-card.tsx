@@ -167,6 +167,11 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
                 {post.author.display_name}
                 {isMingle && post.author.age ? `, ${post.author.age}` : ""}
               </Text>
+              {post.author.is_founding_member ? (
+                <View style={styles.founderBadge} testID={`post-founder-badge-${post.post_id}`}>
+                  <Ionicons name="trophy" size={11} color={colors.warning} />
+                </View>
+              ) : null}
               {isMingle ? (
                 <View style={styles.mingleTag} testID={`post-mingle-tag-${post.post_id}`}>
                   <Ionicons name="heart" size={10} color={colors.brandPrimary} />
@@ -283,6 +288,7 @@ const useStyles = makeStyles((colors) => ({
   styleTagText: { color: colors.brandPrimary, fontSize: 11 },
   mingleTag: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: 7, height: 20 },
   mingleTagText: { color: colors.brandPrimary, fontSize: 11 },
+  founderBadge: { width: 20, height: 20, borderRadius: 999, backgroundColor: "rgba(255,195,0,0.16)", alignItems: "center", justifyContent: "center" },
   meta: { color: colors.muted, fontSize: 12, marginTop: 2 },
   more: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   text: { color: colors.onSurfaceSecondary, fontSize: 15, lineHeight: 22, paddingHorizontal: 14, paddingTop: 12 },

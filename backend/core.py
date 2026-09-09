@@ -145,7 +145,7 @@ PUBLIC_USER_FIELDS = [
     "user_id", "display_name", "username", "bio", "avatar_url", "cover_url",
     "markets", "instruments", "trading_style", "trading_session",
     "followers_count", "following_count", "posts_count", "created_at",
-    "onboarding_complete", "is_verified",
+    "onboarding_complete", "is_verified", "is_founding_member",
     "has_seen_trading_disclaimer", "has_seen_mingle_safety",
 ]
 
@@ -159,6 +159,7 @@ def public_user(doc: dict, include_private: bool = False) -> dict:
     out["posts_count"] = out.get("posts_count") or 0
     out["has_seen_trading_disclaimer"] = bool(out.get("has_seen_trading_disclaimer"))
     out["has_seen_mingle_safety"] = bool(out.get("has_seen_mingle_safety"))
+    out["is_founding_member"] = bool(out.get("is_founding_member"))
     if include_private:
         out["email"] = doc.get("email")
         out["auth_providers"] = doc.get("auth_providers", [])
@@ -176,6 +177,7 @@ def author_summary(doc: Optional[dict]) -> dict:
         "username": doc.get("username"),
         "avatar_url": doc.get("avatar_url"),
         "trading_style": doc.get("trading_style"),
+        "is_founding_member": bool(doc.get("is_founding_member")),
     }
 
 
@@ -291,3 +293,4 @@ async def ensure_indexes():
     await db.checkout_tokens.create_index("token", unique=True)
     await db.stripe_events.create_index("event_id", unique=True)
     await db.users.create_index("stripe_customer_id", unique=True, sparse=True)
+    await db.users.create_index([("created_at", -1)])

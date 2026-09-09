@@ -153,3 +153,28 @@ async def admin_billing_waitlist(_admin=Depends(require_admin)):
         w["created_at"] = w["created_at"].isoformat()
         w["updated_at"] = w["updated_at"].isoformat() if w.get("updated_at") else None
     return {"items": items, "count": len(items)}
+
+
+@router.get("/admin/users")
+async def admin_users(_admin=Depends(require_admin)):
+    """All registered accounts, newest first — for the admin 'All Users' screen."""
+    projection = {
+        "user_id": 1, "display_name": 1, "username": 1, "email": 1, "avatar_url": 1,
+        "membership": 1, "is_founding_member": 1, "is_admin": 1, "created_at": 1, "deleted_at": 1,
+    }
+    cursor = db.users.find({}, projection).sort("created_at", -1).limit(1000)
+    items = []
+    async for u in cursor:
+        items.append({
+            "user_id": u["user_id"],
+            "display_name": u.get("display_name"),
+            "username": u.get("username"),
+            "email": u.get("email"),
+            "avatar_url": u.get("avatar_url"),
+            "tier": (u.get("membership") or {}).get("tier", "free"),
+            "is_founding_member": bool(u.get("is_founding_member")),
+            "is_admin": bool(u.get("is_admin")),
+            "created_at": u["created_at"].isoformat() if u.get("created_at") else None,
+            "deleted": bool(u.get("deleted_at")),
+        })
+    return {"items": items, "count": len(items)}

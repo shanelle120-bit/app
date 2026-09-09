@@ -152,6 +152,18 @@ export default function MyProfile() {
                       <Text style={styles.sheetText}>Billing Waitlist</Text>
                       <Ionicons name="chevron-forward" size={16} color={colors.muted} />
                     </Pressable>
+                    <Pressable
+                      style={styles.sheetItem}
+                      onPress={() => {
+                        setMenu(false);
+                        router.push("/admin/users");
+                      }}
+                      testID="profile-admin-users"
+                    >
+                      <Ionicons name="people-outline" size={20} color={colors.muted} />
+                      <Text style={styles.sheetText}>All Users</Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                    </Pressable>
                   </>
                 ) : null}
 

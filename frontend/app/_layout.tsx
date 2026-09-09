@@ -54,6 +54,7 @@ function RootNavigator() {
         <Stack.Screen name="accountability" />
         <Stack.Screen name="trading" />
         <Stack.Screen name="admin/billing-waitlist" />
+        <Stack.Screen name="admin/users" />
       </Stack.Protected>
     </Stack>
   );

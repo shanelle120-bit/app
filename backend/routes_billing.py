@@ -6,6 +6,7 @@ module only correlates checkouts back to our users and keeps `users.membership` 
 via verified webhooks (never trusting the client-side redirect as the source of truth).
 """
 import os
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import stripe
@@ -14,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pymongo.errors import DuplicateKeyError
 
-from core import db, NO_ID, now_utc, new_id, get_current_user, logger
+from core import db, NO_ID, now_utc, new_id, get_current_user, aware, logger
 
 router = APIRouter(tags=["billing"])
 
@@ -25,6 +26,10 @@ BACKEND_PUBLIC_URL = os.environ.get("BACKEND_PUBLIC_URL", "")
 stripe.api_key = STRIPE_SECRET_KEY
 
 ACTIVE_STATUSES = {"trialing", "active"}
+
+# "Founding Member" — permanent, one-way badge for anyone whose FIRST premium
+# activation lands on or before this cutoff. Never revoked, even if they later cancel.
+FOUNDING_MEMBER_CUTOFF = datetime(2026, 10, 15, 23, 59, 59, tzinfo=timezone.utc)
 
 
 @router.post("/billing/checkout-link")
@@ -60,22 +65,33 @@ async def billing_portal(user=Depends(get_current_user)):
 async def _set_subscription(user_id: str, *, customer_id: str, subscription_id: str, status: str,
                              current_period_end=None, cancel_at_period_end: bool = False):
     tier = "premium" if status in ACTIVE_STATUSES else "free"
-    await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {
-            "stripe_customer_id": customer_id,
-            "stripe_subscription_id": subscription_id,
-            "subscription_status": status,
-            "membership": {
-                "tier": tier,
-                "plan": "monthly" if tier == "premium" else None,
-                "since": now_utc() if tier == "premium" else None,
-                "source": "stripe",
-                "current_period_end": current_period_end,
-                "cancel_at_period_end": cancel_at_period_end,
-            },
-        }},
-    )
+    existing = await db.users.find_one({"user_id": user_id}, {"membership": 1, "is_founding_member": 1})
+    existing_membership = (existing or {}).get("membership") or {}
+    # Preserve the very first time this user went premium — later renewals/updates
+    # must not push this date forward, since it also anchors Founding Member eligibility.
+    since = aware(existing_membership.get("since")) if tier == "premium" else existing_membership.get("since")
+
+    updates = {
+        "stripe_customer_id": customer_id,
+        "stripe_subscription_id": subscription_id,
+        "subscription_status": status,
+    }
+
+    if tier == "premium":
+        if not since:
+            since = now_utc()
+        if not (existing or {}).get("is_founding_member") and since <= FOUNDING_MEMBER_CUTOFF:
+            updates["is_founding_member"] = True
+
+    updates["membership"] = {
+        "tier": tier,
+        "plan": "monthly" if tier == "premium" else None,
+        "since": since,
+        "source": "stripe",
+        "current_period_end": current_period_end,
+        "cancel_at_period_end": cancel_at_period_end,
+    }
+    await db.users.update_one({"user_id": user_id}, {"$set": updates})
 
 
 async def _apply_checkout_completed(session_obj: dict):

@@ -4,6 +4,7 @@ export type AuthorSummary = {
   username: string;
   avatar_url: string | null;
   trading_style?: string | null;
+  is_founding_member?: boolean;
   // Present when the summary is a Single & Mingle identity (never the main profile)
   mingle?: boolean;
   age?: number | null;
@@ -28,6 +29,7 @@ export type User = {
   videos_count?: number;
   onboarding_complete: boolean;
   is_verified?: boolean;
+  is_founding_member?: boolean;
   is_following?: boolean;
   is_me?: boolean;
   mingle_badge?: boolean;
@@ -94,6 +96,19 @@ export type BillingWaitlistEntry = {
   plan: "monthly" | "yearly" | null;
   created_at: string;
   updated_at: string | null;
+};
+
+export type AdminUserEntry = {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  tier: "free" | "premium";
+  is_founding_member: boolean;
+  is_admin: boolean;
+  created_at: string | null;
+  deleted: boolean;
 };
 
 export type MediaItem = {
