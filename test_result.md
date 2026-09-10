@@ -141,6 +141,12 @@
 - Note: `mcp_screenshot_tool` intermittently showed an infinite loading spinner on the public URL (looked like a real bug at first) — root-caused to the tool's own browser session (likely a Cloudflare bot-challenge), NOT the app: a fresh Playwright/Chrome session against the exact same public URL rendered correctly every time. If the automated frontend testing agent reports a stuck spinner, retry once before treating it as a real regression.
 - needs_retesting: false (backend) — `deep_testing_backend_v2` ran 25/25 targeted tests (auth, feed/posts/like/comment/react, profile/users, membership/billing) with zero regressions. needs_retesting: true (frontend) — user approved a full UI regression pass (signup, login, feed interactions, profile edit, premium/billing UI), explicitly WITHOUT completing a real Stripe purchase (live keys).
 
+## Iteration 20 (2026-09) — Re-enabled all v1-deferred features (Chat, Mingle, Accountability, Trading Only)
+- User decided to go complete instead of staged: flipped `src/feature-flags.ts` FEATURES_V1 (chat/mingle/accountability/tradingOnly) all back to `true`. Restored the "Chat" tab in `app/(tabs)/_layout.tsx` (both the `Tabs` bar and the iOS 26+ `NativeTabs` bar). The Premium tab's 3 teaser cards and the profile "Message"/Mingle-badge behavior read `FEATURES_V1` already, so they came back automatically with no extra code changes.
+- Admin: user created their own account with the allowlisted email (`shanelle120@gmail.com` in `backend/.env` ADMIN_EMAILS`) and it auto-granted `is_admin`. Per user request, removed the "Billing Waitlist" entry from the Profile → settings → ADMIN menu (kept "All Users"); the backend `/api/admin/billing-waitlist` endpoint itself was left intact/unlinked (same reversible pattern as before), only the frontend nav entry point in `app/(tabs)/profile.tsx` was removed.
+- No backend code changes this iteration. Verified visually (own Playwright script, logged in as demo@leveluphub.com): bottom nav now shows Home / Chat / Create / Premium / Profile; Premium tab shows Single & Mingle + Accountability Partners cards as "Unlocked" (Trading Only renders via the same list, not individually re-screenshotted).
+- needs_retesting: true (frontend) — full regression of Chat/Mingle/Accountability/Trading Only flows not yet re-run since being re-enabled; pending user go-ahead per protocol before invoking the frontend testing agent again.
+
 
 ## Iteration 19 - Backend Regression Test Results (2026-09-10)
 

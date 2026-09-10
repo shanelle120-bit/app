@@ -3,8 +3,8 @@
 // to `true` (and re-add the relevant nav entry point) to bring a phase back online —
 // no rewrite needed.
 export const FEATURES_V1 = {
-  chat: false,
-  mingle: false,
-  accountability: false,
-  tradingOnly: false,
+  chat: true,
+  mingle: true,
+  accountability: true,
+  tradingOnly: true,
 } as const;
