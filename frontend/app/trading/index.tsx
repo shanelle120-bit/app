@@ -45,7 +45,7 @@ export default function TradingOnly() {
 
   return (
     <View style={styles.root} testID="trading-only-screen">
-      {/* Same header structure as the Main Community Feed: brand block left, round actions right. */}
+      {/* Same header structure as the Main Community Feed: logo mark + brand/tagline stack, round actions on the right. */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
@@ -56,7 +56,8 @@ export default function TradingOnly() {
               <Ionicons name="bar-chart" size={16} color={colors.onBrandPrimary} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.brand}>TRADING{"\n"}ONLY</Text>
+              <Text style={styles.brand} numberOfLines={1}>📈 TRADING ONLY</Text>
+              <Text style={styles.tagline}>Real Traders. Real Talk.</Text>
             </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -69,6 +70,7 @@ export default function TradingOnly() {
           </View>
         </View>
         <Text style={styles.description}>A members-only space for real conversations about strategies, prop firms, platforms, tools, trading psychology, resources, lessons learned and everything trading.</Text>
+        <Text style={styles.philosophy}>Share the craft. Skip the flex.</Text>
       </View>
 
       <VisiblePostsProvider value={visible}>
@@ -118,7 +120,9 @@ const useStyles = makeStyles((colors) => ({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 48 },
   backBtn: { width: 32, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -8 },
   logoMark: { width: 30, height: 30, borderRadius: 9, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
-  brand: { color: colors.onSurface, fontSize: 15, lineHeight: 19, fontWeight: "500", letterSpacing: 1.2 },
+  brand: { color: colors.onSurface, fontSize: 17, fontWeight: "500", letterSpacing: 0.2 },
+  tagline: { color: colors.muted, fontSize: 11, letterSpacing: 0.4 },
   roundBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   description: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 8 },
+  philosophy: { color: colors.brandSecondary, fontSize: 12, lineHeight: 17, marginTop: 4, fontStyle: "italic" },
 }));
