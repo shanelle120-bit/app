@@ -18,10 +18,6 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
           <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="chat">
-          <NativeTabs.Trigger.Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} />
-          <NativeTabs.Trigger.Label>Chat</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="create">
           <NativeTabs.Trigger.Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
           <NativeTabs.Trigger.Label>Create</NativeTabs.Trigger.Label>
@@ -65,11 +61,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="chat"
-        options={{
-          title: "Chat",
-          tabBarButtonTestID: "tab-chat",
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={24} color={color} />,
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="create"

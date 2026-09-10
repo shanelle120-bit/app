@@ -6,6 +6,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { api } from "@/src/api";
 import { Avatar, Button } from "@/src/components/ui";
+import { FEATURES_V1 } from "@/src/feature-flags";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
 import type { User } from "@/src/types";
@@ -39,6 +40,14 @@ export function UserRow({ user, mode = "follow", queryKey }: Props) {
     onError: (e: Error) => toast.show(e.message, "error"),
   });
 
+  const onMessagePress = () => {
+    if (!FEATURES_V1.chat) {
+      toast.show("Chat is launching soon — stay tuned!", "info");
+      return;
+    }
+    message.mutate();
+  };
+
   return (
     <Pressable onPress={() => router.push(`/user/${user.user_id}`)} style={styles.row} testID={`user-row-${user.username}`}>
       <Avatar uri={user.avatar_url} name={user.display_name} size={46} />
@@ -56,7 +65,7 @@ export function UserRow({ user, mode = "follow", queryKey }: Props) {
         </Text>
       </View>
       {user.is_me ? null : mode === "chat" ? (
-        <Button title="Message" small variant="secondary" onPress={() => message.mutate()} loading={message.isPending} testID={`user-message-${user.username}`} />
+        <Button title="Message" small variant="secondary" onPress={onMessagePress} loading={FEATURES_V1.chat && message.isPending} testID={`user-message-${user.username}`} />
       ) : (
         <Button title={user.is_following ? "Following" : "Follow"} small variant={user.is_following ? "secondary" : "primary"} onPress={() => follow.mutate()} loading={follow.isPending} testID={`user-follow-${user.username}`} />
       )}

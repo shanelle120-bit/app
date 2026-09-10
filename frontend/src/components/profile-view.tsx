@@ -9,6 +9,7 @@ import { Dimensions, Pressable, RefreshControl, SectionList, Text, View } from "
 import { api, mediaUrl } from "@/src/api";
 import { PostCard } from "@/src/components/post-card";
 import { Avatar, Button, Chip, EmptyState, Loader } from "@/src/components/ui";
+import { FEATURES_V1 } from "@/src/feature-flags";
 import { postKeys } from "@/src/hooks/use-post-actions";
 import { useVisiblePostsTracker, VisiblePostsProvider } from "@/src/hooks/use-visible-posts";
 import { makeStyles, useTheme } from "@/src/theme";
@@ -61,6 +62,14 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
     onError: (e: Error) => toast.show(e.message, "error"),
   });
 
+  const onMessagePress = () => {
+    if (!FEATURES_V1.chat) {
+      toast.show("Chat is launching soon — stay tuned!", "info");
+      return;
+    }
+    message.mutate();
+  };
+
   const isGrid = tab === "photos" || tab === "videos";
   const gridRows = useMemo(() => {
     if (!isGrid) return [];
@@ -89,7 +98,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
               <Button title="Edit profile" small variant="secondary" icon="create-outline" onPress={() => router.push("/edit-profile")} testID="profile-edit-button" />
             ) : (
               <>
-                <Button title="Message" small variant="secondary" icon="chatbubble-outline" onPress={() => message.mutate()} loading={message.isPending} testID="profile-message-button" />
+                <Button title="Message" small variant="secondary" icon="chatbubble-outline" onPress={onMessagePress} loading={FEATURES_V1.chat && message.isPending} testID="profile-message-button" />
                 <Button title={user.is_following ? "Following" : "Follow"} small variant={user.is_following ? "secondary" : "primary"} onPress={() => follow.mutate()} loading={follow.isPending} testID="profile-follow-button" />
               </>
             )}
@@ -110,7 +119,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
           </Text>
         ) : null}
 
-        {user.mingle_badge ? (
+        {FEATURES_V1.mingle && user.mingle_badge ? (
           <Pressable onPress={() => router.push("/mingle")} style={styles.mingleBadge} testID="profile-mingle-badge">
             <Ionicons name="heart-circle" size={16} color={colors.brandPrimary} />
             <Text style={styles.mingleBadgeText}>Single & Mingle member</Text>

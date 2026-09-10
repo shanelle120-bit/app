@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PlanPicker } from "@/src/components/premium-gate";
 import { Button } from "@/src/components/ui";
+import { FEATURES_V1 } from "@/src/feature-flags";
 import { useMembership } from "@/src/hooks/use-membership";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useToast } from "@/src/toast";
@@ -39,6 +40,10 @@ const SECTIONS = [
     tone: "blue" as const,
   },
 ];
+
+// v1 scope: Chat/Mingle/Accountability/Trading Only are built but deferred — hide the
+// teaser cards on the Premium tab until those are re-introduced.
+const SHOW_FEATURE_TEASERS = FEATURES_V1.mingle || FEATURES_V1.accountability || FEATURES_V1.tradingOnly;
 
 export default function Premium() {
   const styles = useStyles();
@@ -73,7 +78,7 @@ export default function Premium() {
         </View>
 
         <View style={styles.cards}>
-          {SECTIONS.map((s, i) => {
+          {SHOW_FEATURE_TEASERS && SECTIONS.map((s, i) => {
             const f = feature(s.key);
             const available = f?.available ?? s.key === "single_mingle";
             const unlocked = available && (f ? f.unlocked : isPremium);
