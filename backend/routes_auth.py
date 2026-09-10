@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr, Field
 from core import (
     db, NO_ID, now_utc, new_id, aware, normalized_email, password_hash, DUMMY_HASH,
     make_access_token, get_current_user, public_user, RESET_CODE_MINUTES, logger, sync_admin_flag,
+    enforce_account_status,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -89,6 +90,9 @@ def base_user(email: str, display_name: str, providers: list, avatar_url: Option
         "has_seen_trading_disclaimer": False,
         "has_seen_mingle_safety": False,
         "is_admin": False,
+        "account_status": "active",
+        "account_status_reason": None,
+        "account_status_at": None,
     }
 
 
@@ -126,6 +130,7 @@ async def login(body: LoginBody):
     stored = user.get("password_hash") if user else None
     if not password_hash.verify(body.password, stored or DUMMY_HASH) or not stored:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    enforce_account_status(user)
     user = await sync_admin_flag(user)
     return {
         "access_token": make_access_token(user["user_id"], user["email"], "password"),
@@ -206,6 +211,7 @@ async def exchange_session(body: SessionBody):
         user.pop("_id", None)
 
     user = await sync_admin_flag(user)
+    enforce_account_status(user)
     session_token = data["session_token"]
     await db.user_sessions.insert_one({
         "session_token": session_token,

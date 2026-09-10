@@ -271,6 +271,13 @@ async def block(body: TargetBody, user=Depends(get_current_user)):
 async def report(body: TargetBody, user=Depends(get_current_user)):
     await db.mingle_reports.insert_one({"report_id": new_id("rep"), "reporter_id": user["user_id"],
                                         "reported_id": body.user_id, "reason": body.reason, "created_at": now_utc()})
+    # Also feed the unified admin moderation queue (Mingle users show up alongside posts/comments/etc).
+    await db.reports.insert_one({
+        "report_id": new_id("rpt"), "reporter_id": user["user_id"], "target_type": "mingle_user",
+        "target_id": body.user_id, "reason": body.reason, "details": None,
+        "status": "open", "resolution": None, "resolution_note": None,
+        "resolved_by": None, "resolved_at": None, "created_at": now_utc(),
+    })
     return {"reported": True}
 
 

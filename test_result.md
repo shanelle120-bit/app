@@ -493,3 +493,69 @@
 ### Agent Communication
 - **Agent**: testing
 - **Message**: Iteration 22 backend regression check complete. All 6 targeted tests passed. Trading Only space isolation working correctly (trading posts do NOT appear in main feed). Premium gating working correctly (free users get 402 for both GET and POST to trading space). The frontend-only header copy change did NOT introduce any backend regressions. Ready for main agent to summarize and finish.
+
+
+## Iteration 23 (2026-09) — Admin Panel v1 (User Management, Moderation, Premium/Founding grants, Audit Log, Announcements)
+- **User request**: full Admin functionality (15 numbered items) — user search/management, suspend/ban/restore, admin role management, unified reports/moderation queue across posts/comments/profiles/messages/Mingle, content removal/restore, safety oversight, complimentary Premium/Founding grants (no real Stripe changes), admin notes, audit log, dashboard, admin-initiated account deletion, announcements, and granting admin to deandrearenee@gmail.com.
+- **Backend** (new `routes_admin.py`, plus small additive edits to `core.py`, `routes_auth.py`, `routes_activity.py`, `routes_chat.py`, `routes_mingle.py`):
+  - `core.py`: `enforce_account_status()` (checked in `get_current_user` on every request) + `write_audit()` helper + new indexes (`reports`, `admin_notes`, `audit_log`, `announcements`).
+  - `routes_auth.py`: new users get `account_status: "active"`; login/Google-session-exchange both reject suspended/banned accounts with a clear message.
+  - `routes_activity.py`: extended the EXISTING `/admin/users` endpoint (reused, not replaced) with `q` search (name/username/email) + `account_status`/`is_complimentary`/`subscription_status` fields.
+  - `routes_admin.py` (new): `/admin/dashboard`, `/admin/users/{id}` (detail incl. notes/history/safety), `/admin/users/{id}/account-status` (suspend/unsuspend/ban/restore — one field-transition endpoint, 4 verbs in the audit log), `/admin/users/{id}/admin-role`, `/admin/users/{id}/premium-grant` (`complimentary`|`founding` — sets `membership.source="admin_grant"`, never touches Stripe fields), `/admin/users/{id}/premium-revoke` (blocked if `membership.source=="stripe"` — real subscriptions must be managed in Stripe), `/admin/users/{id}/notes`, `/admin/users/{id}/warn`, `/admin/users/{id}/delete-account`, `/admin/audit-log`, `/reports` (user-facing, generic — post/comment/profile/message/mingle_user), `/admin/reports` + `/admin/reports/{id}/resolve` (dismiss/remove_content/warn_user), `/admin/posts|comments/{id}/remove|restore`, `/admin/announcements` (+ `/announcements/active` public), all guarded by `require_admin`; self-lockout guards prevent an admin suspending/banning/deleting/revoking-their-own-admin.
+  - `routes_chat.py`: messages now support soft-delete (`deleted_at`, filtered out of `list_messages`) so message moderation actually takes effect.
+  - `routes_mingle.py`: existing `/mingle/report` now dual-writes into the unified `reports` collection (Mingle users show up in the same admin queue) — its own response/behavior unchanged.
+  - `backend/.env`: `ADMIN_EMAILS` now includes `deandrearenee@gmail.com` (same allowlist mechanism as the existing admin) — she will automatically become admin on her next signup/login; no account existed yet for that email so no password could be set on her behalf.
+  - Fixed one bug found during manual verification: dashboard's "active users" count used strict equality on `account_status` which doesn't match legacy users missing the field — changed to `$nin: ["suspended","banned"]`.
+- **Frontend**: new `app/admin/index.tsx` (dashboard hub with stat grid + nav), `app/admin/user/[id].tsx` (full account detail: status/role/premium actions via a shared `ReasonPromptModal`, notes, moderation history, safety summary, danger zone), `app/admin/reports.tsx` (moderation queue, filter Open/Resolved, resolve actions), `app/admin/announcements.tsx` (compose/pin/unpin), `app/admin/audit-log.tsx`; extended existing `app/admin/users.tsx` (reused, not redesigned) with status badges + navigation to the new detail screen. Profile → settings ADMIN menu now links to the new Admin Dashboard (was a direct link to All Users). New reusable `src/components/report-modal.tsx` + `src/components/reason-modal.tsx` + `src/components/announcement-banner.tsx` (pinned banner on Home feed, read-only, does not touch posting). Added "Report" entry points: `PostCard` overflow menu (non-own posts), comment flag icon (non-own comments), profile "more" button (other users) — all call the generic `POST /api/reports`.
+- **Known scoped-out gap**: reporting a chat DM message from within the chat UI itself was not wired up (backend fully supports `target_type: "message"` already) — deferred to keep this pass focused; can be added quickly later.
+- Verified manually end-to-end (own Playwright scripts + curl), using a temporary `is_admin=true` flip on the demo account for UI QA (reverted immediately after): dashboard stats, All Users search, user detail (suspend → login blocked immediately → restore → login works again), admin role grant/revoke incl. self-lockout guard, complimentary/Founding Premium grant+revoke (membership reflected correctly via `/api/membership`), admin notes, warn-user notification, full report→resolve (remove_content correctly 404s the post afterward) pipeline, announcement create/pin/unpin + public banner, audit log recording every action correctly. User-facing "Report post" flow tested through the real UI (screenshot-verified) end-to-end into the admin queue, then dismissed to leave a clean state. All QA test data cleaned up (temp user soft-deleted via the new admin endpoint itself, test report dismissed, test announcement unpinned).
+- needs_retesting: false — ✅ VERIFIED by testing agent (2026-09-10)
+
+## Iteration 23 - Admin Panel Backend Test Results (2026-09-10)
+
+### Test Context
+- **Scope**: Comprehensive admin functionality testing (all 14 numbered items from review request)
+- **Test Date**: 2026-09-10
+- **Test Type**: Full admin panel backend verification
+- **Admin User**: shanelle120@gmail.com (user_09f21570a0f7)
+- **Backend URL**: https://navy-social-platform.preview.emergentagent.com/api
+
+### Test Results Summary
+**✅ ALL 14 TESTS PASSED (14/14)**
+
+#### Test Details
+1. ✅ **GET /api/admin/dashboard** (as admin) → 200 with all required stats (active_users=10, total_users=10, all fields present)
+2. ✅ **GET /api/admin/users?q=demo** (as admin) → 200, filtered list (found 5 users)
+3. ✅ **GET /api/admin/dashboard** (as non-admin) → 403 (correctly blocked)
+4. ✅ **GET /api/admin/users/{user_id}** (as admin) → 200 with full detail (account_status, membership, notes, history, safety)
+5. ✅ **Account status (suspend/restore)** → Suspend blocked login (403), restore allowed login (200)
+6. ✅ **Admin role (grant/revoke/self-lockout)** → Grant/revoke worked, self-lockout guard prevented self-revoke (400)
+7. ✅ **Premium grant/revoke (founding)** → Granted founding premium, all 3 features unlocked, revoked back to free
+8. ✅ **Admin notes** → Note added (201) and visible in user detail
+9. ✅ **Warn user** → User warned successfully (200)
+10. ✅ **Reports flow (create/list/resolve)** → Report created, listed with reporter info + content preview, resolved
+11. ✅ **Post remove/restore** → Post removed (404), then restored (accessible)
+12. ✅ **Audit log** → Found 31 entries with correct actions (suspended, premium_grant_founding, add_note, warn_user)
+13. ✅ **Announcements (create/active/unpin)** → Announcement created (201), retrieved, unpinned (null)
+14. ✅ **Delete account** → Test user account deleted (200)
+
+### Verification Details
+- **Admin JWT token**: Generated using `make_access_token` for shanelle120@gmail.com
+- **Test user**: Created throwaway user for destructive actions (admin_test_user_*@test.com)
+- **Suspend/restore flow**: Verified existing token gets 403, fresh login blocked, restore allows login
+- **Premium features**: Verified all 3 features (single_mingle, accountability, trading_only) unlocked after founding grant
+- **Self-lockout guard**: Confirmed admin cannot revoke own admin access (400 error)
+- **Reports**: Verified reporter info and content preview in admin queue
+- **Audit log**: Confirmed all admin actions recorded with admin_name, action, reason, created_at
+- **Cleanup**: Test user deleted via admin endpoint, no test data left behind
+
+### Notes
+- All endpoints correctly guarded by `require_admin` (non-admin gets 403)
+- Account status enforcement works immediately (no need to re-login)
+- Premium grants never touch Stripe fields (source="admin_grant")
+- Audit log captures all admin actions with full context
+- Test file: /app/backend_test_admin.py
+
+### Agent Communication
+- **Agent**: testing
+- **Message**: Iteration 23 admin panel backend testing complete. All 14 numbered items from the review request passed. Dashboard stats working, user search working, account status suspend/restore working (login immediately blocked/unblocked), admin role grant/revoke working with self-lockout guard, premium grant/revoke working (all 3 features unlocked), admin notes working, warn user working, reports flow working (create/list/resolve with content preview), post remove/restore working, audit log working (31 entries with correct actions), announcements working (create/active/unpin), delete account working. No critical issues found. Ready for main agent to summarize and finish.

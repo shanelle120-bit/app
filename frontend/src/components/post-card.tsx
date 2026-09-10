@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { mediaUrl, timeAgo } from "@/src/api";
 import { EditPostSheet } from "@/src/components/edit-post-sheet";
 import { ReactionControl } from "@/src/components/reaction-control";
+import { ReportModal } from "@/src/components/report-modal";
 import { Avatar } from "@/src/components/ui";
 import { usePostActions } from "@/src/hooks/use-post-actions";
 import { usePostVisible } from "@/src/hooks/use-visible-posts";
@@ -147,6 +148,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
   const { react, bookmark, share, remove } = usePostActions();
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const isMingle = post.space === "mingle";
 
@@ -190,11 +192,9 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
             </Text>
           </View>
         </Pressable>
-        {post.is_mine ? (
-          <Pressable onPress={() => setMenu(true)} hitSlop={10} style={styles.more} testID={`post-menu-${post.post_id}`}>
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
-          </Pressable>
-        ) : null}
+        <Pressable onPress={() => setMenu(true)} hitSlop={10} style={styles.more} testID={`post-menu-${post.post_id}`}>
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
+        </Pressable>
       </View>
 
       <Pressable onPress={openDetail} disabled={detail} testID={`post-body-${post.post_id}`}>
@@ -235,29 +235,45 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
       <Modal visible={menu} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
         <Pressable style={styles.sheetBackdrop} onPress={() => setMenu(false)}>
           <View style={styles.sheet}>
-            <Pressable
-              style={styles.sheetItem}
-              onPress={() => {
-                setMenu(false);
-                setEditing(true);
-              }}
-              testID="post-edit-button"
-            >
-              <Ionicons name="create-outline" size={20} color={colors.onSurface} />
-              <Text style={styles.sheetText}>Edit post</Text>
-            </Pressable>
-            <Pressable
-              style={styles.sheetItem}
-              onPress={() => {
-                setMenu(false);
-                remove.mutate(post);
-                if (detail) router.back();
-              }}
-              testID="post-delete-button"
-            >
-              <Ionicons name="trash-outline" size={20} color={colors.error} />
-              <Text style={[styles.sheetText, { color: colors.error }]}>Delete post</Text>
-            </Pressable>
+            {post.is_mine ? (
+              <>
+                <Pressable
+                  style={styles.sheetItem}
+                  onPress={() => {
+                    setMenu(false);
+                    setEditing(true);
+                  }}
+                  testID="post-edit-button"
+                >
+                  <Ionicons name="create-outline" size={20} color={colors.onSurface} />
+                  <Text style={styles.sheetText}>Edit post</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.sheetItem}
+                  onPress={() => {
+                    setMenu(false);
+                    remove.mutate(post);
+                    if (detail) router.back();
+                  }}
+                  testID="post-delete-button"
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.error} />
+                  <Text style={[styles.sheetText, { color: colors.error }]}>Delete post</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                style={styles.sheetItem}
+                onPress={() => {
+                  setMenu(false);
+                  setReporting(true);
+                }}
+                testID="post-report-button"
+              >
+                <Ionicons name="flag-outline" size={20} color={colors.error} />
+                <Text style={[styles.sheetText, { color: colors.error }]}>Report post</Text>
+              </Pressable>
+            )}
             <Pressable style={styles.sheetItem} onPress={() => setMenu(false)} testID="post-menu-cancel">
               <Ionicons name="close-outline" size={20} color={colors.onSurface} />
               <Text style={styles.sheetText}>Cancel</Text>
@@ -266,6 +282,7 @@ export const PostCard = memo(function PostCard({ post, detail }: Props) {
         </Pressable>
       </Modal>
       {editing ? <EditPostSheet post={post} visible onClose={() => setEditing(false)} /> : null}
+      <ReportModal visible={reporting} targetType="post" targetId={post.post_id} onClose={() => setReporting(false)} />
     </View>
   );
 });

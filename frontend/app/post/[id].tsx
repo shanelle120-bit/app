@@ -11,6 +11,7 @@ import { api, timeAgo } from "@/src/api";
 import { GifPicker } from "@/src/components/gif-picker";
 import { MentionSuggestions, useMentions } from "@/src/components/mention-suggestions";
 import { PostCard, RichText } from "@/src/components/post-card";
+import { ReportModal } from "@/src/components/report-modal";
 import { Avatar, Button, EmptyState, Loader, ScreenHeader } from "@/src/components/ui";
 import { patchPostEverywhere, postKeys } from "@/src/hooks/use-post-actions";
 import { makeStyles, useTheme } from "@/src/theme";
@@ -32,6 +33,7 @@ export default function PostDetail() {
   const [gifOpen, setGifOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [cursor, setCursor] = useState(0);
+  const [reportingComment, setReportingComment] = useState<string | null>(null);
   const mentions = useMentions(text, cursor);
   const inputRef = useRef<TextInput>(null);
 
@@ -146,6 +148,11 @@ export default function PostDetail() {
                       <Ionicons name="return-down-forward-outline" size={16} color={colors.muted} />
                       <Text style={styles.commentActionText}>Reply</Text>
                     </Pressable>
+                    {!item.is_mine ? (
+                      <Pressable onPress={() => setReportingComment(item.comment_id)} style={styles.commentAction} testID={`comment-report-${item.comment_id}`}>
+                        <Ionicons name="flag-outline" size={15} color={colors.muted} />
+                      </Pressable>
+                    ) : null}
                   </View>
                 </View>
               </View>
@@ -210,6 +217,7 @@ export default function PostDetail() {
           setGifOpen(false);
         }}
       />
+      <ReportModal visible={!!reportingComment} targetType="comment" targetId={reportingComment ?? ""} onClose={() => setReportingComment(null)} />
     </View>
   );
 }

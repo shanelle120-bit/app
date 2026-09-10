@@ -8,6 +8,7 @@ import { Dimensions, Pressable, RefreshControl, SectionList, Text, View } from "
 
 import { api, mediaUrl } from "@/src/api";
 import { PostCard } from "@/src/components/post-card";
+import { ReportModal } from "@/src/components/report-modal";
 import { Avatar, Button, Chip, EmptyState, Loader } from "@/src/components/ui";
 import { FEATURES_V1 } from "@/src/feature-flags";
 import { postKeys } from "@/src/hooks/use-post-actions";
@@ -32,6 +33,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
   const qc = useQueryClient();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("posts");
+  const [reportingUser, setReportingUser] = useState(false);
   const { onViewableItemsChanged, viewabilityConfig, visible } = useVisiblePostsTracker();
 
   const tabs: Tab[] = isMe ? ["posts", "photos", "videos", "mentions", "saved"] : ["posts", "photos", "videos", "mentions"];
@@ -100,6 +102,9 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
               <>
                 <Button title="Message" small variant="secondary" icon="chatbubble-outline" onPress={onMessagePress} loading={FEATURES_V1.chat && message.isPending} testID="profile-message-button" />
                 <Button title={user.is_following ? "Following" : "Follow"} small variant={user.is_following ? "secondary" : "primary"} onPress={() => follow.mutate()} loading={follow.isPending} testID="profile-follow-button" />
+                <Pressable onPress={() => setReportingUser(true)} style={styles.moreBtn} hitSlop={8} testID="profile-more-button">
+                  <Ionicons name="ellipsis-horizontal" size={18} color={colors.muted} />
+                </Pressable>
               </>
             )}
           </View>
@@ -184,6 +189,7 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
   const data: any[] = isGrid ? gridRows : (postsQuery.data ?? []);
 
   return (
+    <>
     <VisiblePostsProvider value={visible}>
     <SectionList
       sections={[{ key: tab, data }]}
@@ -218,6 +224,8 @@ export function ProfileView({ user, isMe, headerTop, onRefreshUser }: Props) {
       testID="profile-list"
     />
     </VisiblePostsProvider>
+    <ReportModal visible={reportingUser} targetType="profile" targetId={user.user_id} onClose={() => setReportingUser(false)} />
+    </>
   );
 }
 
@@ -228,7 +236,8 @@ const useStyles = makeStyles((colors) => ({
   infoWrap: { paddingHorizontal: 16, marginTop: -44 },
   avatarRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
   avatarRing: { padding: 3, borderRadius: 48, backgroundColor: colors.surface },
-  actionRow: { flexDirection: "row", gap: 8, paddingBottom: 6 },
+  actionRow: { flexDirection: "row", gap: 8, paddingBottom: 6, alignItems: "center" },
+  moreBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   name: { color: colors.onSurface, fontSize: 22, fontWeight: "500", letterSpacing: -0.3 },
   handle: { color: colors.muted, fontSize: 14, marginTop: 2 },
   bio: { color: colors.onSurfaceSecondary, fontSize: 15, lineHeight: 22, marginTop: 10 },

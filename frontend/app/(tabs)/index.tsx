@@ -6,6 +6,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { AnnouncementBanner } from "@/src/components/announcement-banner";
 import { PostCard } from "@/src/components/post-card";
 import { StoriesRow } from "@/src/components/stories-row";
 import { Button, EmptyState, Loader } from "@/src/components/ui";
@@ -81,7 +82,12 @@ export default function Home() {
         data={posts}
         keyExtractor={(p) => p.post_id}
         renderItem={({ item }) => <PostCard post={item} />}
-        ListHeaderComponent={<StoriesRow />}
+        ListHeaderComponent={
+          <>
+            <AnnouncementBanner />
+            <StoriesRow />
+          </>
+        }
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         contentContainerStyle={{ paddingBottom: 24 }}

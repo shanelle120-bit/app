@@ -15,6 +15,7 @@ import routes_mingle
 import routes_accountability
 import routes_activity
 import routes_billing
+import routes_admin
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
@@ -37,6 +38,7 @@ api_router.include_router(routes_mingle.router)
 api_router.include_router(routes_accountability.router)
 api_router.include_router(routes_activity.router)
 api_router.include_router(routes_billing.router)
+api_router.include_router(routes_admin.router)
 app.include_router(api_router)
 
 app.add_middleware(

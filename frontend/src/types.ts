@@ -105,11 +105,71 @@ export type AdminUserEntry = {
   email: string | null;
   avatar_url: string | null;
   tier: "free" | "premium";
+  is_complimentary: boolean;
   is_founding_member: boolean;
   is_admin: boolean;
+  account_status: "active" | "suspended" | "banned";
+  subscription_status: string | null;
   created_at: string | null;
   deleted: boolean;
 };
+
+export type AdminNote = { note_id: string; text: string; author_name: string | null; created_at: string };
+export type AdminAuditItem = { action: string; admin_name: string | null; reason: string | null; changes: Record<string, unknown>; created_at: string };
+export type AdminUserDetail = {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at: string | null;
+  deleted: boolean;
+  is_admin: boolean;
+  account_status: "active" | "suspended" | "banned";
+  account_status_reason: string | null;
+  account_status_at: string | null;
+  membership: { tier: string; plan: string | null; source: string | null; since: string | null; current_period_end: number | null; cancel_at_period_end: boolean };
+  subscription_status: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  is_founding_member: boolean;
+  is_complimentary_premium: boolean;
+  notes: AdminNote[];
+  history: AdminAuditItem[];
+  safety: { reports_filed: number; reports_received: number; mingle_blocks_given: number; mingle_blocks_received: number };
+};
+
+export type AdminDashboard = {
+  total_users: number;
+  active_users: number;
+  new_signups_7d: number;
+  free_users: number;
+  premium_users: number;
+  trial_users: number;
+  complimentary_premium_users: number;
+  founding_members: number;
+  suspended_users: number;
+  banned_users: number;
+  open_reports: number;
+};
+
+export type AdminReport = {
+  report_id: string;
+  target_type: "post" | "comment" | "profile" | "message" | "mingle_user";
+  target_id: string;
+  reason: string;
+  details: string | null;
+  status: "open" | "resolved";
+  resolution: string | null;
+  resolution_note: string | null;
+  reporter: { user_id: string; display_name: string | null; username: string | null; avatar_url: string | null };
+  content: { summary: string; author?: { user_id: string; display_name: string | null; username: string | null; avatar_url: string | null }; removed?: boolean };
+  created_at: string;
+  resolved_at: string | null;
+};
+
+export type Announcement = { announcement_id: string; title: string; body: string; pinned?: boolean; active?: boolean; created_by_name?: string; created_at: string };
 
 export type MediaItem = {
   type: "image" | "video" | "gif";

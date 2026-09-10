@@ -100,7 +100,7 @@ async def list_messages(conversation_id: str, after: Optional[datetime] = None,
                         limit: int = Query(default=100, le=200), user=Depends(get_current_user)):
     me = user["user_id"]
     await get_conversation_or_404(conversation_id, me)
-    query = {"conversation_id": conversation_id}
+    query = {"conversation_id": conversation_id, "deleted_at": None}
     if after:
         query["created_at"] = {"$gt": after}
     cursor = db.messages.find(query, NO_ID).sort("created_at", -1).limit(limit)
@@ -134,6 +134,7 @@ async def send_message(conversation_id: str, body: MessageCreate, user=Depends(g
         "audio_url": body.audio_url,
         "audio_duration": round(body.audio_duration or 0, 1) if body.audio_url else None,
         "created_at": now_utc(),
+        "deleted_at": None,
     }
     await db.messages.insert_one(msg)
     msg.pop("_id", None)

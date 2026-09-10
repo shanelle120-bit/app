@@ -1,3 +1,4 @@
+import re
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -156,24 +157,34 @@ async def admin_billing_waitlist(_admin=Depends(require_admin)):
 
 
 @router.get("/admin/users")
-async def admin_users(_admin=Depends(require_admin)):
-    """All registered accounts, newest first — for the admin 'All Users' screen."""
+async def admin_users(q: Optional[str] = None, _admin=Depends(require_admin)):
+    """All registered accounts, newest first — for the admin 'All Users' screen.
+    Optional `q` searches display name, username and email (case-insensitive)."""
     projection = {
         "user_id": 1, "display_name": 1, "username": 1, "email": 1, "avatar_url": 1,
         "membership": 1, "is_founding_member": 1, "is_admin": 1, "created_at": 1, "deleted_at": 1,
+        "account_status": 1, "subscription_status": 1,
     }
-    cursor = db.users.find({}, projection).sort("created_at", -1).limit(1000)
+    query: dict = {}
+    if q and q.strip():
+        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
+        query["$or"] = [{"display_name": rx}, {"username": rx}, {"email": rx}]
+    cursor = db.users.find(query, projection).sort("created_at", -1).limit(1000)
     items = []
     async for u in cursor:
+        membership = u.get("membership") or {}
         items.append({
             "user_id": u["user_id"],
             "display_name": u.get("display_name"),
             "username": u.get("username"),
             "email": u.get("email"),
             "avatar_url": u.get("avatar_url"),
-            "tier": (u.get("membership") or {}).get("tier", "free"),
+            "tier": membership.get("tier", "free"),
+            "is_complimentary": membership.get("source") == "admin_grant",
             "is_founding_member": bool(u.get("is_founding_member")),
             "is_admin": bool(u.get("is_admin")),
+            "account_status": u.get("account_status", "active"),
+            "subscription_status": u.get("subscription_status"),
             "created_at": u["created_at"].isoformat() if u.get("created_at") else None,
             "deleted": bool(u.get("deleted_at")),
         })

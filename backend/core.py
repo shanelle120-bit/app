@@ -103,6 +103,7 @@ async def get_current_user(request: Request) -> dict:
     user = await resolve_token(token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    enforce_account_status(user)
     return user
 
 
@@ -136,6 +137,43 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if user.get("is_admin", False) is not True:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
+
+
+# ---------------------------------------------------------------------------
+# Account status enforcement (suspend/ban) — checked on every authenticated
+# request so an admin action takes effect immediately, even on already-issued tokens.
+# ---------------------------------------------------------------------------
+ACCOUNT_STATUS_MESSAGES = {
+    "suspended": "Your account has been suspended.",
+    "banned": "Your account has been banned.",
+}
+
+
+def enforce_account_status(user: dict) -> None:
+    status = user.get("account_status", "active")
+    if status in ACCOUNT_STATUS_MESSAGES:
+        reason = user.get("account_status_reason")
+        detail = ACCOUNT_STATUS_MESSAGES[status] + (f" Reason: {reason}" if reason else "")
+        raise HTTPException(status_code=403, detail=detail)
+
+
+# ---------------------------------------------------------------------------
+# Admin audit log — every important admin action is recorded here.
+# ---------------------------------------------------------------------------
+async def write_audit(admin: dict, action: str, target_type: str, target_id: Optional[str] = None,
+                       target_label: Optional[str] = None, reason: Optional[str] = None, changes: Optional[dict] = None):
+    await db.audit_log.insert_one({
+        "audit_id": new_id("audit"),
+        "admin_id": admin["user_id"],
+        "admin_name": admin.get("display_name") or admin.get("email"),
+        "action": action,
+        "target_type": target_type,
+        "target_id": target_id,
+        "target_label": target_label,
+        "reason": reason,
+        "changes": changes or {},
+        "created_at": now_utc(),
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -294,3 +332,9 @@ async def ensure_indexes():
     await db.stripe_events.create_index("event_id", unique=True)
     await db.users.create_index("stripe_customer_id", unique=True, sparse=True)
     await db.users.create_index([("created_at", -1)])
+    await db.reports.create_index("report_id", unique=True)
+    await db.reports.create_index([("status", 1), ("created_at", -1)])
+    await db.admin_notes.create_index("user_id")
+    await db.audit_log.create_index([("created_at", -1)])
+    await db.audit_log.create_index("target_id")
+    await db.announcements.create_index([("active", 1), ("created_at", -1)])

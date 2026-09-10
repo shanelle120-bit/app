@@ -144,12 +144,12 @@ export default function MyProfile() {
                       style={styles.sheetItem}
                       onPress={() => {
                         setMenu(false);
-                        router.push("/admin/users");
+                        router.push("/admin");
                       }}
-                      testID="profile-admin-users"
+                      testID="profile-admin-dashboard"
                     >
-                      <Ionicons name="people-outline" size={20} color={colors.muted} />
-                      <Text style={styles.sheetText}>All Users</Text>
+                      <Ionicons name="shield-checkmark-outline" size={20} color={colors.muted} />
+                      <Text style={styles.sheetText}>Admin Dashboard</Text>
                       <Ionicons name="chevron-forward" size={16} color={colors.muted} />
                     </Pressable>
                   </>
