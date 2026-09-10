@@ -145,7 +145,56 @@
 - User decided to go complete instead of staged: flipped `src/feature-flags.ts` FEATURES_V1 (chat/mingle/accountability/tradingOnly) all back to `true`. Restored the "Chat" tab in `app/(tabs)/_layout.tsx` (both the `Tabs` bar and the iOS 26+ `NativeTabs` bar). The Premium tab's 3 teaser cards and the profile "Message"/Mingle-badge behavior read `FEATURES_V1` already, so they came back automatically with no extra code changes.
 - Admin: user created their own account with the allowlisted email (`shanelle120@gmail.com` in `backend/.env` ADMIN_EMAILS`) and it auto-granted `is_admin`. Per user request, removed the "Billing Waitlist" entry from the Profile → settings → ADMIN menu (kept "All Users"); the backend `/api/admin/billing-waitlist` endpoint itself was left intact/unlinked (same reversible pattern as before), only the frontend nav entry point in `app/(tabs)/profile.tsx` was removed.
 - No backend code changes this iteration. Verified visually (own Playwright script, logged in as demo@leveluphub.com): bottom nav now shows Home / Chat / Create / Premium / Profile; Premium tab shows Single & Mingle + Accountability Partners cards as "Unlocked" (Trading Only renders via the same list, not individually re-screenshotted).
-- needs_retesting: false (frontend) — `auto_frontend_testing_agent` ran a full regression pass: all 5 bottom-nav tabs present (Home/Chat/Create/Premium/Profile), all 3 Premium cards Unlocked and navigating correctly, Chat conversation list + existing thread with Marcus Reyes working, Mingle Discover loading with seeded profile, Accountability landing (Find Partner / My Accountability / My Progress) loading, Trading Only feed + disclaimer + empty-state CTA loading, and core v1 flows (Home feed, Profile, Premium billing status) unaffected. One item skipped by the agent (profile "Message" button — couldn't find an author link in its run; code review confirms `FEATURES_V1.chat` gates it to the real conversation-creation path now, no "coming soon" toast).
+## Iteration 21 (2026-09) — BUG FIX: Stripe webhook pointed at a stale preview URL, real purchase never unlocked Premium
+- **User report**: completed a real Stripe checkout for Single & Mingle (promo code, $0), returned to the app, but Premium/Mingle/Accountability/Trading were still locked.
+- **Root cause** (confirmed via Stripe API, not guessed): the Stripe Dashboard `WebhookEndpoint` (`we_1UDcOPC6d5wNxzWQRq5vuICY`) was registered against a stale preview domain (`https://level-up-hub-85.preview.emergentagent.com/api/stripe/webhook`) from an earlier session/container, NOT the current preview URL (`https://navy-social-platform.preview.emergentagent.com`). So `checkout.session.completed` never reached this backend; `db.stripe_events` was completely empty and the user's `checkout_tokens` record (`cktok_db20f19051da`) stayed `used: false`. Confirmed via `stripe.checkout.Session.list` that the real session (`cs_live_b1ApyHu0L5okGrZ5kZC6JCbhAy2iXPFtj4zhnbGQCMtn5mibymPt1k53pY`, status=complete, sub=`sub_1UEFCOC6d5wNxzWQRTutRcUJ`, trialing) had genuinely completed on Stripe's side.
+- **Fix applied**:
+  1. `stripe.WebhookEndpoint.modify(...)` → updated the registered URL to the current preview domain (`.../api/stripe/webhook`). This is the durable fix — future checkouts/renewals/cancellations will now sync automatically. NOTE: because Emergent preview URLs are ephemeral and can change across sessions, this same class of bug can recur if the domain changes again; the webhook endpoint URL should be re-verified against the Stripe Dashboard whenever the preview URL changes.
+  2. One-off manual reconciliation for the affected user (`user_09f21570a0f7`, shanelle120@gmail.com): marked `cktok_db20f19051da` used and called the exact same `_set_subscription(...)` function `routes_billing.py`'s webhook handler would have called, using the real `customer_id`/`subscription_id`/`status` fetched live from Stripe. No fields were fabricated.
+  3. While investigating, found 5 OTHER live "trialing" Stripe subscriptions under the same email from earlier dev/test sessions (also never synced, for the same reason). Flagged to user; per user's response these are known previous-test-version artifacts using a $0 promo, no action taken on Stripe's side (user's explicit call, not ours to unilaterally cancel).
+- needs_retesting: false (backend) — ✅ VERIFIED by testing agent
+
+## Iteration 21 - Backend Bug Fix Verification Results (2026-09-10)
+
+### Test Context
+- **Scope**: Targeted bug fix verification for Stripe webhook URL fix and affected user reconciliation
+- **Test Date**: 2026-09-10
+- **Test Type**: Targeted verification (affected user + webhook signature + general regression)
+- **Affected User**: shanelle120@gmail.com (user_09f21570a0f7)
+- **Backend URL**: https://navy-social-platform.preview.emergentagent.com/api
+
+### Test Results Summary
+**✅ ALL 6 VERIFICATION TESTS PASSED**
+
+#### AFFECTED USER RECONCILIATION (2/2 passed)
+- ✅ GET /api/membership (affected user with provided JWT) - tier=premium, subscription_status=trialing, all 3 features unlocked (single_mingle, accountability, trading_only)
+- ✅ GET /api/auth/me (affected user) - email=shanelle120@gmail.com, tier=premium
+
+#### WEBHOOK SIGNATURE REGRESSION (1/1 passed)
+- ✅ POST /api/stripe/webhook (no/invalid signature) - Returns 400 "Invalid Stripe webhook signature" (signature enforcement still working correctly)
+
+#### GENERAL REGRESSION SANITY (3/3 passed)
+- ✅ POST /api/auth/login (demo@leveluphub.com / Trader123!) - Returns 200, user.tier=premium, access_token received
+- ✅ GET /api/posts?scope=all&limit=5 (demo account) - Returns 200 with posts list
+- ✅ GET /api/membership (demo account) - Returns 200, tier=premium, all 3 features unlocked
+
+### Bug Fix Verification
+**✅ CONFIRMED WORKING:**
+- The affected user (shanelle120@gmail.com) now has Premium access properly unlocked after manual reconciliation
+- All 3 Premium features (Single & Mingle, Accountability Partners, Trading Only) show unlocked=true
+- Subscription status correctly shows "trialing" (matching the real Stripe subscription status)
+- Webhook signature enforcement is still working correctly (not broken by the URL update)
+- Demo account and general API endpoints unaffected (no regressions)
+
+### Notes
+- Used the provided JWT directly for affected user testing (no password login required)
+- Webhook signature test confirmed 400 error with "Invalid Stripe webhook signature" message
+- Demo account posts feed returned 0 posts (expected, not a bug)
+- All tests used real backend URL from frontend/.env (EXPO_PUBLIC_BACKEND_URL)
+
+### Agent Communication
+- **Agent**: testing
+- **Message**: Iteration 21 bug fix verification complete. All 6 targeted tests passed. The affected user (shanelle120@gmail.com) now has Premium tier with all 3 features unlocked (single_mingle, accountability, trading_only) and subscription_status=trialing, matching the real Stripe subscription. Webhook signature enforcement is still working correctly (returns 400 for invalid signatures). General regression checks passed (demo login, posts feed, membership). The bug fix is confirmed working. Ready for main agent to summarize and finish.
 
 
 ## Iteration 19 - Backend Regression Test Results (2026-09-10)
