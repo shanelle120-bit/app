@@ -8,7 +8,7 @@ import uuid
 import pytest
 import requests
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://level-up-hub-85.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://mongo-web-portal.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 
 DEMO_EMAIL = "demo@leveluphub.com"
